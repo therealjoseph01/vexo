@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { S, layout } from '../film/director'
@@ -6,53 +6,76 @@ import { film } from '../film/store'
 import { clamp, smooth, lerp } from '../film/timeline'
 import { LineField } from './LineField'
 import { armLoops, ARM_X0, ARM_X1, WRIST_X } from './armGeometry'
-import { buildHand } from './handMesh'
+import { buildHandAsync, handAsset } from './handMesh'
 
 /*
-  The wearer's forearm and hand: real skin under the studio lights.
-  It arrives fingertips-first, drawn out of the dark by a thin line of light, and for the
-  sensor scene the skin turns glassy so the band's underside shows through, with contour lines
-  carrying the signals up the wrist.
+  The wearer's forearm and hand: skin under the studio lights.
+  It arrives fingertips-first, drawn out of the dark by a thin line of light. For the sensor scene the
+  skin turns glassy so the band's underside shows through, with contour lines carrying the pulse.
+
+  Skin shading, on top of three's physical material:
+    · albedo per vertex (knuckles and fingertips redder, the inner forearm paler, faint veins)
+    · light that wraps past the terminator, red-shifted, the way it scatters under skin
+    · light through thin flesh (fingers, the web of the hand) when it comes from behind
+    · fine relief: pores, and creases across the finger joints
+    · nails: paler, smoother, glossier
 */
-const SKIN = new THREE.Color('#e9b99d')
-const NAIL = new THREE.Color('#f3d2c6')
+export const HAND_OPTS = () => (layout.mobile ? { cell: 0.2 } : { cell: 0.14 })
 
 function skinMaterial() {
   const m = new THREE.MeshPhysicalMaterial({
-    color: SKIN,
-    roughness: 0.5,
+    color: 0xffffff,
+    vertexColors: true,
+    roughness: 0.52,
     metalness: 0,
-    sheen: 0.55,
-    sheenRoughness: 0.55,
-    sheenColor: new THREE.Color('#ffc2a8'),
-    clearcoat: 0.08,
-    clearcoatRoughness: 0.6,
+    sheen: 0.22,
+    sheenRoughness: 0.6,
+    sheenColor: new THREE.Color('#ffc7b0'),
+    clearcoat: 0.12,
+    clearcoatRoughness: 0.55,
+    specularIntensity: 0.5,
     transparent: true,
     depthWrite: true,
-    envMapIntensity: 0.45,
+    envMapIntensity: 0.4,
   })
   const u = {
     uScan: { value: 99 },
     uAlpha: { value: 1 },
     uGlass: { value: 0 },
     uGlow: { value: new THREE.Color(0, 0, 0) },
-    uNail: { value: NAIL },
-    uWrist: { value: WRIST_X },
+    uSSS: { value: 1 },
   }
   m.userData.u = u
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, u)
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float aNail;\nvarying float vAx;\nvarying float vNail;\nvarying vec3 vAp;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvAx = position.x;\nvNail = aNail;\nvAp = position;')
+      .replace('#include <common>', '#include <common>\nattribute float aNail;\nattribute float aThin;\nattribute vec2 aCrease;\nvarying float vAx;\nvarying float vNail;\nvarying float vThin;\nvarying vec2 vCrease;\nvarying vec3 vAp;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvAx = position.x;\nvNail = aNail;\nvThin = aThin;\nvCrease = aCrease;\nvAp = position;')
+    const skinDiffuse = /* glsl */ `
+      {
+        // skin: light wraps past the terminator (red most, blue least), and thin flesh glows when backlit
+        float nl = dot( geometryNormal, directLight.direction );
+        vec3 wrapW = vec3( 0.45, 0.2, 0.12 ) * uSSS;
+        vec3 wrapNL = clamp( ( vec3( nl ) + wrapW ) / ( 1.0 + wrapW ), 0.0, 1.0 );
+        vec3 hv = normalize( directLight.direction + geometryNormal * 0.35 );
+        float back = pow( saturate( dot( geometryViewDir, -hv ) ), 3.0 ) * vThin * uSSS;
+        vec3 skinIrr = ( wrapNL + back * vec3( 1.0, 0.3, 0.16 ) * 0.7 ) * directLight.color;
+        reflectedLight.directDiffuse += skinIrr * BRDF_Lambert( material.diffuseContribution ) * ( 1.0 - F );
+      }`
+    const pars = THREE.ShaderChunk.lights_physical_pars_fragment.replace(
+      'reflectedLight.directDiffuse += irradiance * BRDF_Lambert( material.diffuseContribution ) * ( 1.0 - F );',
+      skinDiffuse,
+    )
     sh.fragmentShader = sh.fragmentShader
       .replace(
         '#include <common>',
         `#include <common>
-        uniform float uScan, uAlpha, uGlass, uWrist;
-        uniform vec3 uGlow, uNail;
+        uniform float uScan, uAlpha, uGlass, uSSS;
+        uniform vec3 uGlow;
         varying float vAx;
         varying float vNail;
+        varying float vThin;
+        varying vec2 vCrease;
         varying vec3 vAp;
         float hsh(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
         float vnoise(vec3 p) {
@@ -61,23 +84,26 @@ function skinMaterial() {
                      mix(mix(hsh(i + vec3(0,0,1)), hsh(i + vec3(1,0,1)), f.x), mix(hsh(i + vec3(0,1,1)), hsh(i + vec3(1,1,1)), f.x), f.y), f.z);
         }`,
       )
-      // nails: paler and glossier; skin: a faint, even mottling so it doesn't read as plastic
+      .replace('#include <lights_physical_pars_fragment>', pars)
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
-        float mott = vnoise(vAp * 1.7) * 0.6 + vnoise(vAp * 5.3) * 0.4;
-        diffuseColor.rgb *= 0.95 + 0.08 * mott;
-        diffuseColor.rgb = mix(diffuseColor.rgb, uNail, smoothstep(0.2, 0.8, vNail));`,
+        // a faint, even mottling so the skin never reads as plastic
+        float mott = vnoise(vAp * 1.6) * 0.55 + vnoise(vAp * 4.7) * 0.45;
+        diffuseColor.rgb *= 0.95 + 0.08 * mott;`,
       )
       .replace(
         '#include <normal_fragment_maps>',
         `#include <normal_fragment_maps>
         {
-          // skin relief: fine creases and pores, as a procedural bump (no texture to download)
-          float hb = vnoise(vAp * 24.0) * 0.55 + vnoise(vAp * vec3(4.0, 11.0, 11.0)) * 0.45;
-          // fine relief only, and only where it's big enough on screen not to shimmer
           float px = length(fwidth(vAp));
-          hb *= 0.0035 * (1.0 - smoothstep(0.2, 0.8, vNail)) * (1.0 - smoothstep(0.05, 0.14, px));
+          float nailK = smoothstep(0.2, 0.8, vNail);
+          // pores and fine skin texture
+          float hb = (vnoise(vAp * 30.0) * 0.6 + vnoise(vAp * 11.0) * 0.4) * 0.0018 * (1.0 - smoothstep(0.02, 0.07, px));
+          // creases across the finger joints: a few fine lines, only right over the joint, only up close
+          float cr = vCrease.x * vCrease.x * (1.0 - nailK);
+          hb += cr * 0.006 * pow(0.5 + 0.5 * cos(vCrease.y * 48.0), 4.0) * (1.0 - smoothstep(0.015, 0.045, px));
+          hb *= 1.0 - nailK;
           vec2 dh = vec2(dFdx(hb), dFdy(hb));
           vec3 sx = dFdx(-vViewPosition);
           vec3 sy = dFdy(-vViewPosition);
@@ -90,8 +116,9 @@ function skinMaterial() {
       .replace(
         '#include <roughnessmap_fragment>',
         `#include <roughnessmap_fragment>
-        roughnessFactor = mix(roughnessFactor, 0.22, smoothstep(0.2, 0.8, vNail));
-        roughnessFactor *= 0.9 + 0.2 * vnoise(vAp * 9.0);`,
+        roughnessFactor = mix(roughnessFactor * (0.9 + 0.2 * vnoise(vAp * 9.0)), 0.2, smoothstep(0.2, 0.8, vNail));
+        // the creases hold a little less shine
+        roughnessFactor = min(1.0, roughnessFactor + vCrease.x * 0.08);`,
       )
       .replace(
         '#include <dithering_fragment>',
@@ -102,7 +129,10 @@ function skinMaterial() {
         // the cut at the elbow dissolves into the dark
         float elbow = smoothstep(${(ARM_X0 + 1).toFixed(1)}, ${(ARM_X0 + 8).toFixed(1)}, vAx);
         vec3 nV = normalize(vViewPosition);
-        float rim = pow(1.0 - abs(dot(normalize(vNormal), -nV)), 2.5);
+        float ndv = abs(dot(normalize(vNormal), -nV));
+        float rim = pow(1.0 - ndv, 2.5);
+        // skin falls off towards the silhouette (light scattered sideways, the curve turning away): form, not a flat cut-out
+        gl_FragColor.rgb *= mix(0.74, 1.0, smoothstep(0.05, 0.75, ndv)) * (1.0 - uGlass) + uGlass;
         // glass: the sensors see through you
         gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.02, 0.03, 0.03) + uGlow * (0.25 + rim), uGlass);
         gl_FragColor.rgb += vec3(1.0, 0.97, 0.93) * front * 1.4;
@@ -119,49 +149,62 @@ const green = new THREE.Color('#9dffc4')
 const ink = new THREE.Color('#d9dee6')
 
 export function Wrist() {
+  const [geo, setGeo] = useState(handAsset.geo)
+  useEffect(() => {
+    let live = true
+    buildHandAsync(HAND_OPTS()).then((g) => live && setGeo(g))
+    return () => {
+      live = false
+    }
+  }, [])
+
   const R = useMemo(() => {
-    // contour loops only around the forearm and wrist (the fingers are real geometry now)
+    // contour loops only around the forearm and wrist (for the sensor scene)
     const loops = armLoops(layout.mobile ? { step: 0.8, pts: 72, thumbPts: 36 } : { step: 0.55 }).filter((l) => l.part === 'arm' && l.x > -15 && l.x < 3.5)
     const f = new LineField({ lines: loops.length, points: layout.mobile ? 72 : 96, renderOrder: 6 })
     loops.forEach((l, i) => {
       f.points(i, l.pts, true)
       f.style(i, { color: ink, alpha: 0, width: 1, glow: 0 })
     })
-    const geo = buildHand(layout.mobile ? { cell: 0.24 } : { cell: 0.2 })
-    const mat = skinMaterial()
-    const skin = new THREE.Mesh(geo, mat)
-    skin.matrixAutoUpdate = false
-    skin.frustumCulled = false
-    skin.renderOrder = 1
-    return { loops, f, skin, mat }
+    return { loops, f }
   }, [])
+
+  const skin = useMemo(() => {
+    if (!geo) return null
+    const mat = skinMaterial()
+    const mesh = new THREE.Mesh(geo, mat)
+    mesh.matrixAutoUpdate = false
+    mesh.frustumCulled = false
+    mesh.renderOrder = 1
+    return { mesh, mat }
+  }, [geo])
 
   useFrame(({ gl, size }) => {
     const A = S.arm
     const on = A.alpha > 0.002
     R.f.mesh.visible = on
-    R.skin.visible = on
+    if (skin) skin.mesh.visible = on
     if (!on) return
     const time = film.time
-    R.skin.matrix.copy(A.matrix)
-    R.skin.matrixWorldNeedsUpdate = true
-    const u = R.mat.userData.u
-    // the line of light runs from beyond the fingertips back to the elbow
-    u.uScan.value = lerp(ARM_X1 + 1.5, ARM_X0 - 2, A.scan)
-    if (A.scan >= 1) u.uScan.value = -99
     const glass = clamp(1 - A.solid)
-    u.uGlass.value = glass
-    u.uAlpha.value = A.alpha
-    u.uGlow.value.copy(green).multiplyScalar(0.35 * A.tint)
-    const opaque = glass < 0.4 && A.alpha > 0.98
-    if (R.mat.depthWrite !== opaque) R.mat.depthWrite = opaque
+    if (skin) {
+      skin.mesh.matrix.copy(A.matrix)
+      skin.mesh.matrixWorldNeedsUpdate = true
+      const u = skin.mat.userData.u
+      // the line of light runs from beyond the fingertips back to the elbow
+      u.uScan.value = A.scan >= 1 ? -99 : lerp(ARM_X1 + 1.5, ARM_X0 - 2, A.scan)
+      u.uGlass.value = glass
+      u.uAlpha.value = A.alpha
+      u.uGlow.value.copy(green).multiplyScalar(0.35 * A.tint)
+      const opaque = glass < 0.4 && A.alpha > 0.98
+      if (skin.mat.depthWrite !== opaque) skin.mat.depthWrite = opaque
+    }
 
     tint.copy(ink).lerp(green, A.tint)
     R.loops.forEach((l, i) => {
       R.f.matrix(i, A.matrix)
       R.f.style(i, { color: tint })
       const edge = smooth(clamp((l.x + 15) / 5)) * (1 - smooth(clamp((l.x - 1) / 2.5)))
-      // where the band sits the skin reads brighter (contact), and in the sensor shot the whole wrist carries the signal
       const contact = Math.exp(-(((l.x - WRIST_X) / 2.2) ** 2)) * A.contact
       R.f.alpha(i, A.alpha * edge * glass * (0.38 + 0.3 * contact))
       // heart rate travels from the sensor along the wrist (repeating pulses on distance from the band)
@@ -173,7 +216,7 @@ export function Wrist() {
 
   return (
     <>
-      <primitive object={R.skin} />
+      {skin && <primitive object={skin.mesh} />}
       <primitive object={R.f.mesh} />
     </>
   )

@@ -7,7 +7,8 @@ import { SB, WORN_BASIS, POINTS, pointLocal } from './bandSpec'
 import { loadBand, asset } from './bandAsset'
 import { buildStudioEnv } from './studioEnv'
 import { Band } from './Band'
-import { Wrist } from './Wrist'
+import { Wrist, HAND_OPTS } from './Wrist'
+import { buildHandAsync } from './handMesh'
 import { Dust } from './Dust'
 import { Story } from './Story'
 import { DEBUG } from '../Debug'
@@ -178,7 +179,7 @@ function Lights() {
       light.intensity = I
       light.visible = I > 0.001
     }
-    at(R.key, -0.62, 0.62, 0.48, L.key)
+    at(R.key, -0.74, 0.6, 0.3, L.key)
     at(R.rim, 0.75, 0.32, -0.58, L.rim)
     at(R.fill, 0.35, -0.45, 0.82, L.fill)
     at(R.top, 0.05, 1, 0.1, L.top)
@@ -261,7 +262,8 @@ function Ready({ onReady, onError }) {
   const { gl, scene, camera } = useThree()
   useEffect(() => {
     let dead = false
-    loadBand()
+    // Vexo's model streams in while the hand is sculpted
+    Promise.all([loadBand(), buildHandAsync(HAND_OPTS())])
       .then(
         () =>
           new Promise((res) => {

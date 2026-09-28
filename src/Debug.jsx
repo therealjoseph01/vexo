@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { film } from './film/store'
 import { S } from './film/director'
 import { SCENES } from './film/timeline'
+import { handAsset } from './gl/handMesh'
 
 // QA overlay: add ~d to the hash (e.g. #t12.4~d) or ?debug to the URL.
 export const DEBUG = typeof window !== 'undefined' && (/~d/.test(window.location.hash) || /[?&]debug\b/.test(window.location.search))
@@ -80,7 +81,7 @@ export function Debug() {
       last = now
       if (el.current)
         el.current.textContent = [
-          `t ${film.t.toFixed(3)}  fps ${fps.toFixed(0)}  q ${film.quality}  vel ${film.vel.toFixed(2)}  ready ${film.readyAt ? (film.readyAt / 1000).toFixed(2) + 's' : '…'}  marks ${Object.entries(film.marks).map(([k, v]) => k + ' ' + (v / 1000).toFixed(2)).join(' · ')}`,
+          `t ${film.t.toFixed(3)}  hand ${(handAsset.progress * 100).toFixed(0)}%  fps ${fps.toFixed(0)}  q ${film.quality}  vel ${film.vel.toFixed(2)}  ready ${film.readyAt ? (film.readyAt / 1000).toFixed(2) + 's' : '…'}  marks ${Object.entries(film.marks).map(([k, v]) => k + ' ' + (v / 1000).toFixed(2)).join(' · ')}`,
           `cam ${S.cam.toArray().map((x) => x.toFixed(2))} tgt ${S.tgt.toArray().map((x) => x.toFixed(2))} az ${S.camAz.toFixed(2)}  band rx ${S.float.rx.toFixed(2)} ry ${S.float.ry.toFixed(2)}  worn k ${S.worn.k.toFixed(2)} slide ${S.worn.slide.toFixed(2)} cinch ${S.worn.cinch.toFixed(3)}  explode ${S.band.explode.toFixed(2)}`,
           `light env ${S.light.env.toFixed(2)} key ${S.light.key.toFixed(2)} rim ${S.light.rim.toFixed(2)} spot ${S.light.spot.toFixed(2)}  arm a ${S.arm.alpha.toFixed(2)} solid ${S.arm.solid.toFixed(2)}  mic ${S.pts.mic ? S.pts.mic.toArray().map((x) => x.toFixed(2)) : '-'}`,
           ...log,
