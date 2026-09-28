@@ -15,7 +15,7 @@ export function jumpTo(t) {
   } else window.scrollTo({ top: y, behavior: 'smooth' })
 }
 
-// Film chrome: wordmark, waitlist, scene index, progress. Quiet until the film starts.
+// Film chrome: wordmark, Buy Band, scene index, progress. Quiet until the film starts.
 export function Chrome() {
   const [active, setActive] = useState(0)
   const activeRef = useRef(0)
@@ -49,8 +49,8 @@ export function Chrome() {
         <a className="nav-mark" href={LINKS.home} aria-label="Vexo">
           <Wordmark />
         </a>
-        <a className="nav-cta" href={LINKS.app} target="_blank" rel="noreferrer">
-          Get the app
+        <a className="nav-cta" href={LINKS.buy}>
+          Buy Band
         </a>
       </header>
 

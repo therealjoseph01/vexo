@@ -1,13 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { film } from './film/store'
 import { S } from './film/director'
-import { ENV } from './gl/studio'
 import { SCENES } from './film/timeline'
 
 // QA overlay: add ~d to the hash (e.g. #t12.4~d) or ?debug to the URL.
 export const DEBUG = typeof window !== 'undefined' && (/~d/.test(window.location.hash) || /[?&]debug\b/.test(window.location.search))
 const log = []
-const CHECK = [0.6, 1.9, 2.9, 4.7, 5.35, 6.8, 7.9, 8.9, 9.6, 10.5, 12.1, 12.55, 13.5, 14.45, 15.3, 15.9, 16.8, 17.6, 18.4, 19.5, 20.4, 21.1, 21.8, 22.6, 23.6, 24.6, 25.8, 27.7, 28.9, 29.8, 31.1, 32.2, 33.2, 33.9, 34.6, 35.4, 36.5]
+const CHECK = [0.2, 0.9, 1.6, 2.1, 2.9, 3.4, 4.0, 4.75, 5.4, 6.8, 7.8, 8.6, 9.2, 9.6, 10.1, 10.8, 11.4, 12.3, 13.3, 14.4, 15.3, 16.6, 17.7, 18.3, 19.3, 20.4, 21.0, 22.0, 22.9, 24.6, 25.4, 26.1, 26.8, 28.2, 29.0, 29.8, 30.4, 31.6, 32.1, 32.8, 33.5, 34.4]
 if (DEBUG) {
   const push = (kind, args) => {
     log.push(`${kind}: ${[...args].map((a) => (a && a.message) || String(a)).join(' ').slice(0, 600)}`)
@@ -31,7 +30,7 @@ export function Debug() {
   const el = useRef()
   useEffect(() => {
     if (!DEBUG) return
-    // keys: 1–9,0 jump to scenes · [ ] step ∓0.25 · { } step ∓1 · f cycles finish
+    // keys: 1–9 jump to scenes · [ ] step ∓0.25 · { } step ∓1 · f cycles finish
     const onKey = (e) => {
       film.snap = true
       const n = '1234567890'.indexOf(e.key)
@@ -41,7 +40,7 @@ export function Debug() {
       if (e.key === '{') film.jump(film.t - 1)
       if (e.key === '}') film.jump(film.t + 1)
       if (e.key === 'c') film.lenis.scrollTo(document.documentElement.scrollHeight, { immediate: true, force: true })
-      if (e.key === 'f') film.finish = { silver: 'gold', gold: 'graphite', graphite: 'silver' }[film.finish]
+      if (e.key === 'f') film.finish = { graphite: 'pearl', pearl: 'moss', moss: 'graphite' }[film.finish]
       // , and . step through QA checkpoints
       if (e.key === '.' || e.key === ',') {
         const i = CHECK.findIndex((c) => c > film.t + 0.01)
@@ -60,8 +59,8 @@ export function Debug() {
       if (el.current)
         el.current.textContent = [
           `t ${film.t.toFixed(3)}  fps ${fps.toFixed(0)}  q ${film.quality}  vel ${film.vel.toFixed(2)}  ready ${film.readyAt ? (film.readyAt / 1000).toFixed(2) + 's' : '…'}  marks ${Object.entries(film.marks).map(([k, v]) => k + ' ' + (v / 1000).toFixed(2)).join(' · ')}`,
-          `cam ${S.cam.x.toFixed(2)} ${S.cam.y.toFixed(2)} ${S.cam.z.toFixed(2)}  ring rx ${S.ring.rx.toFixed(2)} ry ${S.ring.ry.toFixed(2)} rz ${S.ring.rz.toFixed(2)} s ${S.ring.scale.toFixed(2)} pos ${S.ring.pos.toArray().map((x) => x.toFixed(2))}`,
-          `box0 ${ENV.uBoxCol.value[0].r.toFixed(2)} dir ${ENV.uBoxDir.value[0].toArray().map((x) => x.toFixed(2))}  key ${ENV.uBoxCol.value[1].r.toFixed(2)} rim ${ENV.uBoxCol.value[2].r.toFixed(2)}`,
+          `cam ${S.cam.toArray().map((x) => x.toFixed(2))} tgt ${S.tgt.toArray().map((x) => x.toFixed(2))} az ${S.camAz.toFixed(2)}  band rx ${S.float.rx.toFixed(2)} ry ${S.float.ry.toFixed(2)}  worn k ${S.worn.k.toFixed(2)} slide ${S.worn.slide.toFixed(2)} cinch ${S.worn.cinch.toFixed(3)}  explode ${S.band.explode.toFixed(2)}`,
+          `light env ${S.light.env.toFixed(2)} key ${S.light.key.toFixed(2)} rim ${S.light.rim.toFixed(2)} spot ${S.light.spot.toFixed(2)}  arm a ${S.arm.alpha.toFixed(2)} solid ${S.arm.solid.toFixed(2)}  mic ${S.pts.mic ? S.pts.mic.toArray().map((x) => x.toFixed(2)) : '-'}`,
           ...log,
         ].join('\n')
       raf = requestAnimationFrame(loop)

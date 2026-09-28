@@ -73,6 +73,64 @@ export const fromAnchor = (name) => (out) => {
   o.getWorldPosition(out)
 }
 
+// a named point on the band (world, follows the exploded view)
+export const fromBand = (name) => (out, S) => {
+  const p = S.pts[name]
+  if (!p) return false
+  out.copy(p)
+}
+
+/*
+  <Pin> — any DOM element held to a point in 3D. anchor(out, S) writes the point; at(t, S) → 0..1
+  visibility (also exposed to CSS as --o); dx/dy = [desktop, mobile] pixel offsets;
+  align = 'left' | 'right' | 'center' (or [desktop, mobile]) says which edge of the element sits on the point.
+*/
+export function Pin({ anchor, at, dx = [0, 0], dy = [0, 0], align = 'left', className = '', children, onFrame, lift = 8 }) {
+  const el = useRef()
+  const vec = useMemo(() => new THREE.Vector3(), [])
+  const last = useRef({ o: -1, vis: null, al: '' })
+  useFrameDom((S, t, ctx) => {
+    const e = el.current
+    if (!e) return
+    const o = at(t, S)
+    const L = last.current
+    if (o < 0.002) {
+      if (L.vis !== false) {
+        e.style.visibility = 'hidden'
+        L.vis = false
+        L.o = -1
+      }
+      return
+    }
+    if (anchor(vec, S) === false) return
+    const [x, y, ok] = ctx.project(vec)
+    const mob = ctx.vw < 760 ? 1 : 0
+    const al = Array.isArray(align) ? align[mob] : align
+    if (L.al !== al) {
+      L.al = al
+      e.dataset.align = al
+    }
+    const shift = al === 'right' ? ' translateX(-100%)' : al === 'center' ? ' translateX(-50%)' : ''
+    e.style.transform = `translate3d(${(x + dx[mob]).toFixed(1)}px, ${(y + dy[mob] + (1 - o) * lift).toFixed(1)}px, 0)${shift}`
+    if (Math.abs(o - L.o) > 0.001) {
+      L.o = o
+      e.style.opacity = o.toFixed(3)
+      e.style.setProperty('--o', o.toFixed(3))
+    }
+    const vis = ok
+    if (L.vis !== vis) {
+      L.vis = vis
+      e.style.visibility = vis ? 'visible' : 'hidden'
+    }
+    if (onFrame) onFrame(e, o, S, t, ctx)
+  })
+  return (
+    <div ref={el} className={`pin ${className}`}>
+      {children}
+    </div>
+  )
+}
+
 /*
   <Tag> — a label pinned to a point in 3D space, with an optional hairline leader.
   anchor(outVec3, S) writes the world position; dx/dy = [desktop, mobile] pixel offsets;

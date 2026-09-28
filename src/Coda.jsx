@@ -1,118 +1,109 @@
 import { useState } from 'react'
-import { LINKS, PHOTOS, SHOW_WAITLIST } from './config'
+import { LINKS, PHOTOS, DETAILS, AGENTS, CONNECTORS_AVAILABLE, CONNECTORS_TOTAL, FINISHES, PRICE } from './config'
 import { Wordmark } from './overlay/Wordmark'
 
 function Photo({ p, className = '', loading = 'lazy' }) {
   const [ok, setOk] = useState(true)
   return (
     <figure className={`ph ${className} ${ok ? '' : 'ph-missing'}`} style={{ aspectRatio: `${p.w} / ${p.h}` }}>
-      {ok && <img src={p.src} alt={p.alt} loading={loading} decoding="async" crossOrigin="anonymous" onError={() => setOk(false)} />}
+      {ok && <img src={p.src} alt={p.alt} loading={loading} decoding="async" onError={() => setOk(false)} />}
     </figure>
   )
 }
 
-function Film() {
-  const [play, setPlay] = useState(false)
-  return (
-    <div className="film">
-      {play ? (
-        <video src={PHOTOS.film.src} poster={PHOTOS.film.poster} controls autoPlay playsInline preload="none" />
-      ) : (
-        <button className="film-poster" onClick={() => setPlay(true)} aria-label="Play A Day With Vexo, with sound">
-          <img src={PHOTOS.film.poster} alt="" loading="lazy" onError={(e) => (e.currentTarget.style.display = 'none')} />
-          <span className="film-play" aria-hidden="true">
-            <i />
-          </span>
-          <span className="film-t">
-            <span className="eyebrow">Watch with sound</span>
-            <span className="film-name">A Day With Vexo</span>
-          </span>
-        </button>
-      )}
-    </div>
-  )
-}
-
-const SPECS = [
-  ['Signals', 'Heart rate, HRV, blood oxygen, respiratory rate, skin temperature, sleep and activity. Measured every second.'],
-  ['Sensors', 'Optical heart-rate sensor, skin-temperature sensor, accelerometer and gyroscope.'],
-  ['Voice', 'A microphone on the ring. Double tap to speak. Transcribed on your iPhone; the audio never leaves it.'],
-  ['Haptics', 'Silent. Alarms, nudges and gentle check-ins, felt by you and no one else.'],
-  ['Battery', 'Five days on one charge. An hour on the dock and it’s ready again.'],
-  ['Body', 'Aerospace titanium. 2.4 grams.'],
-  ['Everyday', 'Hand washing, sweat, a caught-out shower. It keeps reading.'],
-  ['Apps', 'Stride, Matchday, Rally, Still, Plate, Dose, Lift, Goals and 100+ more — or describe your own to Vexo Studio.'],
-  ['Platform', 'MCP for the AI assistants you choose, scoped OAuth 2.1 for developers. Off by default, revocable any time.'],
+const WRISTS = [
+  { id: 'graphite', p: PHOTOS.graphiteWrist },
+  { id: 'pearl', p: PHOTOS.pearlWrist },
+  { id: 'moss', p: PHOTOS.mossWrist },
 ]
 
-// After the film: the object in real light, the details, the film, the footer. Typographic, not cards.
+// After the film: the band in real light, the details, and the footer. Typographic, not cards.
 export function Coda() {
+  const [wrist, setWrist] = useState('graphite')
+  const cur = WRISTS.find((x) => x.id === wrist)
   return (
     <main className="coda" id="after">
       <section className="coda-intro">
         <div className="coda-copy">
+          <span className="eyebrow">Vexo Band</span>
           <h2 className="coda-h">
-            Barely <em>there.</em>
+            Woven comfort. <em>Thoughtfully connected.</em>
           </h2>
-          <p className="coda-p">Aerospace titanium. 2.4 grams. Worn day and night, it learns what normal feels like for you.</p>
+          <p className="coda-p">An AI bracelet that remembers your day and acts before you ask.</p>
+          <div className="finish static" role="radiogroup" aria-label="Finish">
+            {FINISHES.map((f) => (
+              <button key={f.id} role="radio" aria-checked={wrist === f.id} className={wrist === f.id ? 'on' : ''} onClick={() => setWrist(f.id)}>
+                <i style={{ background: f.swatch }} />
+                <span>{f.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
-        <Photo p={PHOTOS.hand} className="ph-hand" />
+        <Photo key={cur.id} p={cur.p} className="ph-wrist" />
       </section>
 
       <section className="coda-pair">
         <div>
-          <Photo p={PHOTOS.gold} />
+          <Photo p={PHOTOS.mic} />
           <p className="cap">
-            <span className="cap-k">Everyday-ready.</span> Hand washing, sweat, a caught-out shower. It keeps reading.
+            <span className="cap-k">Just say it.</span> Built-in microphone.
           </p>
         </div>
         <div>
-          <Photo p={PHOTOS.night} />
+          <Photo p={PHOTOS.sensors} />
           <p className="cap">
-            <span className="cap-k">Silent haptics.</span> A gentle tap only you can feel.
+            <span className="cap-k">In tune with you.</span> Health sensors.
           </p>
         </div>
       </section>
 
-      <section className="coda-specs" aria-label="Vexo Ring at a glance">
-        <div className="eyebrow">Vexo Ring</div>
+      <section className="coda-specs" aria-label="Band, in detail">
+        <div className="eyebrow">Band, in detail</div>
         <dl>
-          {SPECS.map(([k, v]) => (
+          {DETAILS.map(([k, v]) => (
             <div key={k}>
               <dt>{k}</dt>
               <dd>{v}</dd>
             </div>
           ))}
+          <div>
+            <dt>Vexo Intelligence</dt>
+            <dd>{AGENTS.join(', ')}.</dd>
+          </div>
+          <div>
+            <dt>Your world</dt>
+            <dd>
+              {CONNECTORS_AVAILABLE.join(', ')} available now; {CONNECTORS_TOTAL - CONNECTORS_AVAILABLE.length} more coming soon. Choose what you connect in the Vexo app.
+            </dd>
+          </div>
+          <div>
+            <dt>Privacy</dt>
+            <dd>Vexo never keeps your audio. Only you can see your memories, and you can delete them anytime.</dd>
+          </div>
         </dl>
       </section>
 
-      <section className="coda-film">
-        <Film />
-      </section>
-
-      <section className="coda-women">
-        <Photo p={PHOTOS.women} />
-        <div className="coda-women-t">
-          <h3 className="coda-h3">The ins and outs of women’s health.</h3>
-          <p className="coda-p">Vexo reads your cycle off your finger and moves your training, sleep and recovery with it.</p>
-          <a className="link" href={LINKS.women}>
-            Explore women’s health <span aria-hidden="true">→</span>
+      <section className="coda-finishes" aria-label="Finishes">
+        {FINISHES.map((f) => (
+          <a key={f.id} className="coda-finish" href={LINKS.finish(f.id)}>
+            <Photo p={PHOTOS[f.id]} />
+            <span className="cap">
+              <span className="cap-k">{f.label}</span>
+              {f.note ? ` ${f.note}` : ''}
+            </span>
           </a>
-        </div>
+        ))}
       </section>
 
       <section className="coda-last">
-        <Photo p={PHOTOS.moss} className="ph-moss" />
-        <p className="coda-quote">A quiet instrument for the signals your body is already sending.</p>
+        <Photo p={PHOTOS.signature} className="ph-sig" />
+        <h3 className="coda-h3">
+          Make it <em>yours.</em>
+        </h3>
         <div className="finale-cta static">
-          <a className="btn primary" href={LINKS.app} target="_blank" rel="noreferrer">
-            Get the Vexo app
+          <a className="btn primary" href={LINKS.buy}>
+            Buy Band · {PRICE}
           </a>
-          {SHOW_WAITLIST && (
-            <a className="btn ghost" href={LINKS.waitlist}>
-              Join the waitlist
-            </a>
-          )}
         </div>
       </section>
 
@@ -122,20 +113,12 @@ export function Coda() {
         </div>
         <nav className="foot-col" aria-label="Product">
           <div className="eyebrow">Product</div>
-          <a href={LINKS.women}>Women’s Health</a>
-          <a href={LINKS.app} target="_blank" rel="noreferrer">
-            Vexo app
-          </a>
-          {SHOW_WAITLIST && <a href={LINKS.waitlist}>Waitlist</a>}
-        </nav>
-        <nav className="foot-col" aria-label="Company">
-          <div className="eyebrow">Company</div>
+          <a href={LINKS.buy}>Explore Band</a>
           <a href={LINKS.privacy}>Privacy</a>
           <a href={LINKS.terms}>Terms</a>
-          <a href={LINKS.hackathon}>Hackathon</a>
         </nav>
         <div className="foot-col">
-          <div className="eyebrow">Contact</div>
+          <div className="eyebrow">Get in touch</div>
           <a href={LINKS.email}>info@vexoai.com</a>
           <a href={LINKS.instagram} target="_blank" rel="noreferrer">
             Instagram
@@ -147,12 +130,7 @@ export function Coda() {
             LinkedIn
           </a>
         </div>
-        <p className="foot-legal">
-          Vexo is a general wellness product, not a medical device. It is not intended to diagnose, treat, cure or prevent any condition. Readings are estimates from consumer sensors.
-        </p>
-        <p className="foot-legal mono">
-          © 2026 VexoAI, Inc. · <a href={LINKS.yc}>Backed by Y Combinator</a>
-        </p>
+        <p className="foot-legal mono">© 2026 VexoAI, Inc.</p>
       </footer>
     </main>
   )

@@ -10,6 +10,7 @@ import { Chrome } from './overlay/Chrome'
 import { Coda } from './Coda'
 import { Fallback } from './Fallback'
 import { Debug } from './Debug'
+import { onAsset, asset } from './gl/bandAsset'
 
 function hasWebGL2() {
   film.marks.probe0 = performance.now()
@@ -90,16 +91,35 @@ function useFilm(enabled) {
   return vh
 }
 
+// Vexo's model is ~7 MB: the loader shows real progress while it streams in.
+function Loader({ done }) {
+  const [p, setP] = useState(asset.progress)
+  useEffect(() => onAsset((a) => setP(a.progress)), [])
+  return (
+    <div className={`loader ${done ? 'done' : ''}`} aria-hidden="true">
+      <div className="loader-in">
+        <svg viewBox="0 0 120 120" className="loader-ring">
+          <circle cx="60" cy="60" r="44" className="track" />
+          <circle cx="60" cy="60" r="44" className="bar" style={{ strokeDashoffset: (1 - p) * 276.5 }} />
+        </svg>
+        <span className="loader-t mono">Vexo Band</span>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [gl] = useState(() => typeof window === 'undefined' || hasWebGL2())
   const [ready, setReady] = useState(false)
-  const vh = useFilm(gl)
+  const [failed, setFailed] = useState(false)
+  const vh = useFilm(gl && !failed)
 
   useEffect(() => {
     if (ready) document.documentElement.classList.add('is-ready')
   }, [ready])
 
-  if (!gl) return <Fallback />
+  // no WebGL2, or the model couldn't load: the same story as a quiet, photographic page
+  if (!gl || failed) return <Fallback />
 
   return (
     <>
@@ -112,15 +132,12 @@ export default function App() {
           film.readyAt = performance.now()
           setReady(true)
         }}
+        onError={() => setFailed(true)}
       />
       <Overlay />
       <Chrome />
       <Debug />
-      <div className={`loader ${ready ? 'done' : ''}`} aria-hidden="true">
-        <svg viewBox="0 0 120 120" className="loader-ring">
-          <circle cx="60" cy="60" r="44" />
-        </svg>
-      </div>
+      <Loader done={ready} />
       <div className="film-spacer" style={{ height: (SCROLL_TOTAL + 1) * vh }} />
       <Coda />
     </>

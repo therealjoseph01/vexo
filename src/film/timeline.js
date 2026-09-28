@@ -1,18 +1,17 @@
 // The film is one continuous timeline in "story time" (≈ screens of scroll).
 // All choreography is written in story time; PACE decides how much scroll each moment gets.
-export const TOTAL = 37
+export const TOTAL = 35
 
 export const SCENES = [
-  { id: 'sense', n: '01', name: 'Your sixth sense', start: 0, end: 3.4, jump: 1.9 },
-  { id: 'enter', n: '02', name: 'Enter the ring', start: 3.4, end: 8.0, jump: 4.55 },
-  { id: 'body', n: '03', name: 'The body, speaking', start: 8.0, end: 11.4, jump: 9.9 },
-  { id: 'voice', n: '04', name: 'Double tap to speak', start: 11.4, end: 15.2, jump: 12.2 },
-  { id: 'apps', n: '05', name: 'Every app, one ring', start: 15.2, end: 19.2, jump: 16.1 },
-  { id: 'studio', n: '06', name: 'Vexo Studio', start: 19.2, end: 24.2, jump: 20.1 },
-  { id: 'api', n: '07', name: 'The body, as an API', start: 24.2, end: 27.4, jump: 25.6 },
-  { id: 'privacy', n: '08', name: 'Yours alone', start: 27.4, end: 30.6, jump: 29.3 },
-  { id: 'days', n: '09', name: 'Five days', start: 30.6, end: 34.0, jump: 31.2 },
-  { id: 'vexo', n: '10', name: 'Vexo', start: 34.0, end: TOTAL, jump: 36.2 },
+  { id: 'open', n: '01', name: 'Already on it', start: 0, end: 3.6, jump: 2.6 },
+  { id: 'band', n: '02', name: 'Woven comfort', start: 3.6, end: 8.2, jump: 6.2 },
+  { id: 'wrist', n: '03', name: 'On your wrist', start: 8.2, end: 11.2, jump: 10.6 },
+  { id: 'context', n: '04', name: 'It has the context', start: 11.2, end: 15.6, jump: 11.6 },
+  { id: 'acts', n: '05', name: 'Acts before you ask', start: 15.6, end: 19.8, jump: 16.2 },
+  { id: 'voice', n: '06', name: 'Just say it', start: 19.8, end: 23.8, jump: 20.4 },
+  { id: 'health', n: '07', name: 'In tune with you', start: 23.8, end: 27.4, jump: 25.0 },
+  { id: 'privacy', n: '08', name: 'Private by design', start: 27.4, end: 31.0, jump: 28.4 },
+  { id: 'yours', n: '09', name: 'Make it yours', start: 31.0, end: TOTAL, jump: 34.2 },
 ]
 
 export const clamp = (x, a = 0, b = 1) => (x < a ? a : x > b ? b : x)
@@ -39,16 +38,16 @@ export const ease = {
   scroll distance, so it plays slower under the same wheel. Edges blend smoothly.
 */
 export const PACE = [
-  [3.9, 5.3, 1.45], // 02 · inside the ring, the LEDs wake
-  [5.9, 7.9, 1.25], // 02 · signals join the orbit one by one
-  [8.6, 10.6, 1.3], // 03 · body → ring → data
-  [12.3, 14.6, 1.45], // 04 · tap, speak, understand, respond
-  [16.0, 18.4, 1.25], // 05 · the flight through the ecosystem
-  [20.0, 23.6, 1.55], // 06 · language becomes an app
-  [24.8, 26.8, 1.2], // 07 · the network
-  [28.2, 30.3, 1.3], // 08 · privacy
-  [31.3, 33.4, 1.6], // 09 · five days
-  [34.6, 36.4, 1.35], // 10 · the final reveal
+  [0.2, 2.2, 1.35], // 01 · light across the weave
+  [4.3, 5.5, 1.25], // 02 · microphone, sensors
+  [5.8, 7.2, 1.35], // 02 · inside the module
+  [8.6, 10.4, 1.55], // 03 · onto the wrist
+  [11.4, 15.2, 1.35], // 04 · three conversations
+  [15.8, 19.4, 1.3], // 05 · memories become actions
+  [20.4, 23.4, 1.4], // 06 · voice → a deck
+  [24.4, 27.0, 1.25], // 07 · sensors
+  [28.0, 30.6, 1.35], // 08 · the audio disappears
+  [31.2, 33.4, 1.3], // 09 · off the wrist
 ]
 const PACE_RAMP = 0.3
 const PACE_STEP = 0.004
@@ -97,7 +96,7 @@ export const sceneIndexAt = (t) => {
   Monotone cubic track (Fritsch–Carlson). Keys: [[t, value], ...].
   Velocity is continuous through interior keys (no stop-and-go at every keyframe),
   zero at the ends and on holds (repeated values), and it never overshoots — so the
-  ring and camera move like something heavy on a dolly, not a CSS tween.
+  band and camera move like something heavy on a dolly, not a CSS tween.
 */
 export function track(keys) {
   const n = keys.length
@@ -111,7 +110,6 @@ export function track(keys) {
     else {
       const h0 = xs[i] - xs[i - 1]
       const h1 = xs[i + 1] - xs[i]
-      // weighted harmonic mean — keeps it monotone
       const w1 = 2 * h1 + h0
       const w2 = h1 + 2 * h0
       m[i] = (w1 + w2) / (w1 / d[i - 1] + w2 / d[i])

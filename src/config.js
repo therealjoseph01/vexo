@@ -1,68 +1,76 @@
 /*
-  Facts, links and copy sourced from vexoai.com (/ring, /women-health, /waitlist, /privacy, /terms), Sept 2026.
-  See STORYBOARD.md §1 for the source of every claim. Set SITE to '' to use relative links in production.
+  Facts, links and copy for Vexo Band, sourced from vexoai.com (home, /checkout, /privacy, /terms)
+  and Vexo's YC company page, Sept 28 2026. STORYBOARD.md §1 lists the source of every claim.
+  Set SITE to '' to use relative links when this ships on vexoai.com itself.
 */
 export const SITE = 'https://www.vexoai.com'
 
-/*
-  What vexoai.com actually offers for the Ring (checked Sept 28 2026):
-  · "Download on the App Store" → the Vexo Ring app          (primary CTA here)
-  · "Join Waitlist" → /waitlist, live, email form             (secondary; set SHOW_WAITLIST = false to drop it)
-  · No Ring checkout exists — the homepage /checkout sells Vexo Band.
-*/
-export const SHOW_WAITLIST = true
-
 export const LINKS = {
-  home: `${SITE}/ring`,
-  waitlist: `${SITE}/waitlist`,
-  women: `${SITE}/women-health`,
+  home: `${SITE}/`,
+  buy: `${SITE}/checkout`,
+  finish: (id) => `${SITE}/checkout?finish=${id}`,
   privacy: `${SITE}/privacy`,
   terms: `${SITE}/terms`,
-  hackathon: `${SITE}/hackathon`,
-  app: 'https://apps.apple.com/us/app/vexo-ring/id6787324778',
-  yc: 'https://www.ycombinator.com',
+  yc: 'https://www.ycombinator.com/companies/vexo',
   email: 'mailto:info@vexoai.com',
   instagram: 'https://www.instagram.com/vexoring.ai/',
   x: 'https://x.com/VexoRing',
   linkedin: 'https://www.linkedin.com/company/vexoaiinc/',
 }
 
-// Official photography, served by Vexo's CDN (Access-Control-Allow-Origin: *). Used in the coda only.
-export const PHOTOS = {
-  moss: { src: `${SITE}/images/landing/footer-ring.webp`, alt: 'Silver Vexo Ring standing in moss under an open sky', w: 2400, h: 1355 },
-  hand: { src: `${SITE}/images/landing/ring-onhand.png`, alt: 'Graphite Vexo Ring on the index finger of a runner', w: 1254, h: 1254 },
-  gold: { src: `${SITE}/images/landing/ringinmotion.jpg`, alt: 'Gold Vexo Ring on a hand in motion', w: 1600, h: 893 },
-  night: { src: `${SITE}/images/landing/haptics-night.jpg`, alt: 'Graphite Vexo Ring on a resting hand at night', w: 1600, h: 893 },
-  women: { src: `${SITE}/images/women/teaser-wide.webp`, alt: 'Vexo women’s health', w: 2400, h: 1018 },
-  film: { src: `${SITE}/videos/demo-reel.mp4?v=2`, poster: `${SITE}/videos/demo-reel-poster.jpg?v=2` },
-}
+export const PRICE = '$199'
 
-// Finishes seen in Vexo's own photography: silver (footer), gold (women's health), graphite (on hand).
+// The three finishes on /checkout, and how the site describes them.
 export const FINISHES = [
-  { id: 'silver', label: 'Silver', swatch: '#d9d9d6' },
-  { id: 'gold', label: 'Gold', swatch: '#d8b27a' },
-  { id: 'graphite', label: 'Graphite', swatch: '#3b3c40' },
+  { id: 'graphite', label: 'Graphite', swatch: '#2c2f33', note: 'Charcoal weave. Dark titanium.' },
+  { id: 'pearl', label: 'Pearl', swatch: '#d9d5cb' },
+  { id: 'moss', label: 'Moss', swatch: '#5d6a4f' },
 ]
 
-// Illustrative readings — the same sample values Vexo shows on /ring.
-export const READINGS = {
-  hr: 62,
-  hrv: 46,
-  spo2: 98,
-  temp: '36.6°',
-  resp: 14,
-  sleep: '7h 12m',
+// Official photography and renders from vexoai.com (copied to public/images/band).
+const img = (f) => `images/band/${f}`
+export const PHOTOS = {
+  graphiteWrist: { src: img('graphite-on-wrist.webp'), alt: 'Graphite Vexo Band on a wrist', w: 2000, h: 1600 },
+  pearlWrist: { src: img('pearl-on-wrist.webp'), alt: 'Pearl Vexo Band on a wrist', w: 2000, h: 1600 },
+  mossWrist: { src: img('moss-on-wrist.webp'), alt: 'Moss Vexo Band on a wrist', w: 2000, h: 1600 },
+  graphite: { src: img('graphite-overview-upright-v10.webp'), alt: 'Graphite Vexo Band, standing', w: 1600, h: 1280 },
+  pearl: { src: img('pearl-overview-upright-v10.webp'), alt: 'Pearl Vexo Band, standing', w: 1600, h: 1280 },
+  moss: { src: img('moss-overview-upright-v10.webp'), alt: 'Moss Vexo Band, standing', w: 1600, h: 1280 },
+  signature: { src: img('graphite-signature-v10.webp'), alt: 'The titanium loop closure of Vexo Band, engraved VEXO', w: 1600, h: 1280 },
+  sensors: { src: img('graphite-sensors-v10.webp'), alt: 'The health sensor window on the inside of Vexo Band', w: 1600, h: 1280 },
+  mic: { src: img('mic.webp'), alt: 'Close view of the small circular microphone port on Vexo Band', w: 3840, h: 3072 },
+  intro: { src: img('intro.webp'), alt: 'Graphite Vexo Band emerging into the studio light', w: 3840, h: 3072 },
 }
 
-// "Every app, one ring." — the apps named on /ring, plus women's health.
-export const APPS = [
-  { id: 'stride', name: 'Stride', kind: 'Running' },
-  { id: 'matchday', name: 'Matchday', kind: 'Soccer' },
-  { id: 'rally', name: 'Rally', kind: 'Pickleball' },
-  { id: 'still', name: 'Still', kind: 'Meditation' },
-  { id: 'plate', name: 'Plate', kind: 'Nutrition' },
-  { id: 'dose', name: 'Dose', kind: 'Care' },
-  { id: 'lift', name: 'Lift', kind: 'Strength' },
-  { id: 'goals', name: 'Goals', kind: 'The long game' },
-  { id: 'women', name: 'Women’s health', kind: 'Cycle · from nightly temperature' },
+// "Band, in detail" (/checkout)
+export const DETAILS = [
+  ['Health sensing', 'Heart rate, skin temperature and motion.'],
+  ['Built-in microphone', 'For the things you want to say.'],
+  ['Quiet haptics', 'A gentle tap, just for you.'],
+  ['Bluetooth LE', 'Connected to your phone.'],
+  ['Onboard memory', 'Storage, built right in.'],
+]
+
+// Vexo Intelligence (home page)
+export const AGENTS = ['Creating', 'Memory', 'Reservations', 'Uber', 'DoorDash', 'Shopping', 'Email']
+
+// "Your world. Working together." — connectors listed on the home page: 59 in all, these marked Available.
+export const CONNECTORS_AVAILABLE = ['Gmail', 'Google Calendar', 'Google Drive', 'Notion', 'GitHub', 'Render', 'Supabase']
+export const CONNECTORS_SOON = ['Slack', 'Spotify', 'Linear', 'Figma', 'Asana', 'Outlook', 'WhatsApp', 'Todoist', 'Google Docs', 'Google Sheets', 'Microsoft Teams', 'Trello', 'Zoom', 'Dropbox']
+export const CONNECTORS_TOTAL = 59
+
+// The example on the home page (Vexo Intelligence demo)
+export const DEMO = {
+  said: 'Make me a pitch deck for a late-night coffee shop. Four slides. Keep it sharp.',
+  title: 'after hours.',
+  line: 'A neighborhood coffee house. After dark.',
+  kicker: 'A place to stay, after the day is done.',
+}
+
+// The day, as the film tells it. What Vexo does with it is YC's own example:
+// "booking the table, sending the follow-up, and ordering the groceries through the apps you already use".
+export const DAY = [
+  { heard: 'Let’s do dinner at 8.', memory: 'Dinner at 8', action: 'Table booked', detail: '8:00', via: 'Reservations' },
+  { heard: 'Can you send Sarah the deck?', memory: 'Send Sarah the deck', action: 'Follow-up sent', detail: 'Sarah', via: 'Email' },
+  { heard: 'We’re out of groceries.', memory: 'Need groceries', action: 'Groceries ordered', detail: '', via: 'DoorDash' },
 ]

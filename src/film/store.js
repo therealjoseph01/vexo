@@ -9,7 +9,7 @@ export const film = {
   finePointer: true,
   reduced: false,
   lenis: null,
-  finish: 'silver',
+  finish: 'graphite',
   quality: 1, // 1 = full, 0.66 = reduced, 0.4 = minimal (set by the frame-time monitor)
   ready: false,
   inCoda: false,

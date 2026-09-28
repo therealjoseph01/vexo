@@ -1,260 +1,166 @@
-# VEXO — an interactive unveiling
+# VEXO BAND: an interactive unveiling
 
-A scroll-driven product film for the Vexo Ring. One ring, one camera, one continuous shot.
-Scrolling is the playhead. Scrolling back rewinds it.
+A scroll-driven product film for **Vexo Band**, Vexo's woven AI bracelet. The band itself carries the story: it starts
+as a piece of fabric in the dark, comes onto a wrist, hears the day, acts on it, and comes back off.
 
 ```
-RING → SENSORS → BODY → DATA → VOICE → APPS → AI CREATION → BODY API → PRIVACY → RING
+FABRIC → BAND → WRIST → CONTEXT → MEMORY → ACTION → VOICE → SENSORS → PRIVACY → BAND
 ```
 
 ---
 
-## 1. What Vexo is (research summary)
+## 1. Correction: the product is a band, not a ring
 
-Sources: vexoai.com/ring, /women-health, /waitlist, /privacy (updated Aug 16 2026), /terms (updated Sep 23 2026),
-the official hero render (`/videos/hero-snap.mp4`) and product photography.
+The first version of this film was built around a smart ring. That was wrong. vexoai.com leads with **Vexo Band**, and
+YC lists Vexo as *"An AI bracelet that remembers your day and acts before you ask."* Everything below was
+re-researched on Sept 28 2026 from the live site, the site's own assets, and the YC company page.
 
-> Note: vexoai.com's root now leads with **Vexo Band**. The Ring lives at **/ring**. This film is built for the Ring.
+### What the Vexo Band looks like (from vexoai.com's renders and its 3D model)
 
-**What makes it different from Oura and other rings.** Other rings track you passively. Vexo also listens: there's a
-microphone on the ring (double-tap to speak), silent haptics, and an AI that reads your vitals and remembers every
-chat. Around it sits an app marketplace, and **Vexo Studio** builds you a new app from a sentence. Under that is
-a scoped, revocable data platform (MCP and OAuth 2.1). The sensitive processing happens on the phone.
-
-### Claims used, and where they come from
-
-| Claim in the film | Source |
+| Part | What it is |
 |---|---|
-| "Your Sixth Sense" · "Listens, remembers and acts before you ask." | /ring hero |
-| Heart rate, HRV, blood oxygen, respiratory rate, skin temperature, sleep and activity. Measured every second. | /ring |
-| Optical PPG, skin-temperature sensor, accelerometer + gyroscope, microphone | /privacy §03 |
-| "Double tap to speak." · "Say it before the moment goes away." | /ring |
-| Ring mic → streamed to iPhone → transcribed on-device (Apple speech). Audio never uploaded. | /privacy §02–04 |
-| Voice notes captured by double-tapping the Ring | /privacy §03 |
-| "Feel what it knows." · "A gentle tap only you can feel." | /ring |
-| "Every app, one ring." Stride, Matchday, Rally, Still, Plate, Dose, Lift, Goals · 100+ more in the marketplace | /ring |
-| Cycle insights from nightly temperature | /women-health |
-| Vexo Studio: describe → Vexo writes it (code, screens, wiring into live ring data) → on your ring. Example: a marathon fuel planner reading heart rate, sleep and recovery. "Vibe-code an app. Describe it out loud. Vexo builds it, one shot." | /ring |
-| MCP to external assistants (e.g. Claude, ChatGPT): off by default, personal link, revocable. Categories: profile, latest vitals, activity summaries, metric history, transcripts | /privacy §07 |
-| Scoped OAuth 2.1 tokens, approved scope by scope, revocable | /terms §09 |
-| Marketplace access is deny-by-default and scoped (e.g. "latest vitals", "read captures") | /privacy §07 |
-| "Every insight is computed on your phone. No feeds, no ads, nothing sold." | /ring |
-| "Your data belongs to you, and it does not leave your devices without your explicit consent." | /privacy |
-| Location: not collected. The app never uses the iPhone microphone. | /privacy §03 |
-| "Five days. One charge." · "…then an hour on the dock and it is ready to go again." | /ring |
-| Aerospace titanium. 2.4 grams. Hand washing, sweat, a caught-out shower. | /ring |
-| General wellness product, not a medical device | /terms §03, /women-health |
-| Backed by Y Combinator · waitlist · Vexo app on the App Store | /ring, /waitlist |
+| **Continuous wrap** | A wide, flat **woven** strap, about 2.1 cm across, in one continuous loop. "Woven comfort." Charcoal / pearl / moss weave. |
+| **Loop closure** | A rounded-rectangle **titanium loop** the strap passes through, with **VΞXO engraved** down its outer side. |
+| **Module** | A slim rectangular titanium housing, sandwiched in the wrap on the top of the wrist, with a **side button** on the top edge. |
+| **Microphone** | A small round port on the module's top edge, with an anodized rim, a mesh and a membrane. "A microphone at your side." |
+| **Health sensors** | A large round smoked-glass **sensor window** on the skin side, with green and red LEDs behind a polished rim. "Health sensors beneath." |
+| **Tuck embroidery** | The Vexo triangle mark, embroidered on the outer flap. |
+| **Inside** (from Vexo's own model) | Main board (BLE radio, IMU, memory), battery pouch, haptic ERM motor, and a skin-side board with the optical HR and temperature sensors. |
+| **Finishes** | Graphite ("Charcoal weave. Dark titanium."), Pearl (off-white weave, silver titanium), Moss (sage weave, champagne titanium). |
 
-### Claims deliberately *not* used
-- **REST / WebSocket**: not documented publicly. Scene 7 uses MCP, OAuth 2.1 and scopes instead.
-- **"Location — denied"**: inaccurate. Location isn't collected at all, so the film says *not collected*.
-- **"Hundreds of experiences"**: Vexo says 8 named apps plus 100+ in the marketplace. The film says exactly that.
-- **Price and ship date**: /women-health says $99 and January 2027, but /ring and /waitlist say "Not for sale. Yet."
-  There is no Ring checkout (the homepage /checkout sells the Band). So the primary CTA is the **Vexo app on the App
-  Store**, and the secondary is the live **/waitlist**, which is the ring page's own main CTA. `SHOW_WAITLIST` in
-  `config.js` turns it off.
-- **"Saved to Reminders"**: routing a note to Reminders needs a tap in the app (/privacy §03). The film shows a
-  voice note being *saved as a note*.
+### Official assets used
 
-### Asset audit
-- **No public 3D model.** There's an official render video (1920×1080, 37 s) and photography: silver on moss,
-  graphite on hand, gold on hand, graphite at night.
-- The render video shows the hardware details we model: a flat titanium band with rounded edges and a stepped inner
-  rim, a round **microphone port** with a polished bezel and mesh on the outer face, a raised glossy **sensor pill**
-  on the inner face (green and red LEDs over a dark window), **VΞXO engraved** inside next to the pill, and a
-  **rounded-triangle dock** with a centre puck and a white status dot.
-- The brand: the VΞXO wordmark (stroked, round caps), Hanken Grotesk, Instrument Serif italic accents, black
-  studio backgrounds, silver type.
-- The CDN serves `Access-Control-Allow-Origin: *`, so official photos can be used directly (they appear in the coda).
+- `public/models/vexo-band.glb`: vexoai.com's own product model (`/models/vexo-wrap-product-v15-web.glb`, 7.3 MB,
+  Draco-compressed, woven normal and roughness textures). **The film renders this model.** Nothing about the band is
+  re-modelled or invented.
+- `public/images/band/*.webp`: official renders and lifestyle photography (on wrist ×3 finishes, overview, signature,
+  sensors, microphone, intro), used in the coda.
 
-**Decision:** the ring is rebuilt as real-time geometry, a surface of revolution modelled from the official render.
-Pre-rendered frames can't do what the story needs: fly the camera *through* the aperture, orbit freely, swap finish
-live, or react to signals. A 1080p image sequence would also weigh 15–30 MB. The procedural ring downloads nothing
-and stays sharp at any resolution.
+### Claims, and where they come from
 
----
-
-## 2. Visual language
-
-- **Stage:** near-black, one studio. The ring is lit like a product film: long softbox strips reflected in polished
-  titanium. The lighting is an analytic environment in the ring's shader, so every light can move each frame at no cost.
-- **Signal line:** everything the ring knows is drawn as one hairline luminous stroke: waveforms, contour lines, orbits,
-  threads, arcs. No cards, icons or gradients. The same stroke carries the whole film, so body, data, apps and API
-  all look like one system.
-- **Colour:** titanium silver on black. Colour only appears when it means something: PPG green, SpO₂ red,
-  thermal amber, and warm or cool daylight in Scene 9.
-- **Type:** Hanken Grotesk (Vexo's face), Instrument Serif italic for single emphasised words, JetBrains Mono for
-  readouts. Show 3–8 words at a time.
-
----
-
-## 3. Scenes (story time ≈ screens of scroll)
-
-### 01 · Your sixth sense (0 – 3.4)
-- **0.0:** black. One thin sliver of reflected light on the ring's rim, seen almost edge-on, as in the first frame
-  of Vexo's render.
-- **0.3–2.2:** a single strip softbox travels around the ring's axis, so the highlight runs around the circumference
-  and the form shows itself. The ring turns very slowly. Dust catches the light.
-- **1.4:** **YOUR SIXTH SENSE** fades up, with the same light travelling across the letters. Then
-  *Listens, remembers and acts before you ask.*
-- **2.6–3.4:** the ring turns its aperture to the lens and comes toward camera.
-- *Technique:* WebGL ring with the studio shader; DOM type with a mask synced to the light angle.
-
-### 02 · Enter the ring (3.4 – 8.0)
-- **3.4–4.4:** the camera flies into the aperture. The inner wall wraps the frame. We tilt down onto the sensor pill:
-  a macro shot, like the official close-up.
-- **4.4–5.2:** the green LED pulses and a heartbeat ripples faintly through the room: **HEART RATE 62**. Then
-  the red LED: **BLOOD OXYGEN**.
-- **5.2–8.0:** we pull back out through the aperture. As the ring comes back into view, each signal becomes a trace
-  **orbiting the ring**, like a circular oscilloscope where the circumference is the time axis:
-  - heart rate (PPG waveform)
-  - HRV (beat-to-beat ticks)
-  - SpO₂
-  - respiration (a slow swell, and the whole ring breathes)
-  - skin temperature (the titanium warms with a thermal gradient)
-  - sleep (a hypnogram)
-  - motion (dust reacts to *your* scroll speed; the readout shows live accelerometer values)
-- **Copy:** *The signals that matter.* → *Measured every second.*
-- *Technique:* camera spline through the ring; LED emissives; GPU parametric ribbons; scroll-velocity particles.
-
-### 03 · The body becomes data (8.0 – 11.4)
-- The orbits fold down and the ring drifts forward. Behind it a human figure appears as contour lines, like a
-  body scan, drawn bottom to top. The pose is a hand on the heart, and the ring sits over the hand.
-- Signal waves travel through the contours toward the ring: heartbeat from the chest, breath swelling the rib
-  cage, warmth across the skin. BODY → RING.
-- The ring answers. Readings leave it and hang in space at different depths: **62 BPM · HRV 46 ms · SpO₂ 98% ·
-  36.6° · 14 /min · 7h 12m**. RING → DATA.
-- **Copy:** *A quiet instrument for the signals your body is already sending.*
-- *Technique:* signed-distance body sliced into ~90 contour loops at build time (marching squares) as one static
-  ribbon field; per-point distance-to-ring drives the converging pulses; DOM readouts projected from 3D.
-
-### 04 · Double tap to speak (11.4 – 15.2)
-- The body dissolves. The ring turns its outer face and **microphone port** to the camera and comes close.
-- **TAP · TAP:** the ring gives slightly under each tap, on a spring, and a ripple crosses the metal.
-- A voice waveform arrives from the left. Words ride it: *"Note to self: stretch after this run."* Sound rings
-  converge into the mic port, the reverse of the official render.
-- TAP → SPEAK → UNDERSTAND → RESPOND: the words settle into a transcript (*transcribed on your iPhone*), then
-  *Saved as a note*. The ring answers with a haptic: a tiny tremor and a ring of light spreading through the band.
-- **Copy:** *Double tap to speak.* · *Say it before the moment goes away.* · *Feel what it knows.*
-
-### 05 · Every app, one ring (15.2 – 19.2)
-- The readings fly outward and turn into apps orbiting the ring at different depths. Each app is drawn in the same
-  hairline and built from its own signal:
-  - **Stride** (Running): cadence on a track
-  - **Matchday** (Soccer): pitch lines and sprints
-  - **Rally** (Pickleball): bounce arcs over a net
-  - **Still** (Meditation): a breathing circle
-  - **Plate** (Nutrition): a segmented plate
-  - **Dose** (Care): a dose timeline
-  - **Lift** (Strength): sets rising
-  - **Goals** (The long game): a months-long trend
-  - **Women's health**: a cycle loop with the temperature shift
-- A thread runs from the ring to every app, and pulses travel outward: every app reads the same signals off the
-  same finger.
-- The camera flies *through* the ecosystem, then pulls back until 100+ points ring the whole system.
-- **Copy:** *Every app, one ring.* → *100+ more in the marketplace.*
-
-### 06 · Build an app by describing it (19.2 – 24.2), the signature moment
-- Everything falls quiet. The ring sits alone.
-- A spoken line writes itself: *"Build me a marathon fuel planner."* The letters stream into the aperture.
-- The ring takes a breath of light. Code spirals out and dissolves: **THE CODE YOU'LL NEVER WRITE 0 → 100%**.
-- An app assembles in space. A phone outline draws, then its parts fly out of the ring and lock in: the title, the
-  race-day fuel plan, a heart-rate chart, sleep and recovery. Threads connect the ring's **heart rate · sleep ·
-  recovery** signals to the parts that use them.
-- **CREATED WITH VEXO STUDIO** · *Describe it out loud. Vexo builds it, one shot.*
-- *Technique:* DOM app with CSS 3D (crisp, accessible text), anchored per frame to the ring's projected position;
-  SVG threads.
-
-### 07 · The body, as an API (24.2 – 27.4)
-- The new app shrinks into one node. Arcs grow out of the ring to other nodes: **Fuel Planner** (Studio),
-  **Stride** (marketplace), **Claude** and **ChatGPT** (MCP), and **your code** (OAuth 2.1). Packets travel the
-  arcs, each labelled with the data it's allowed: *latest vitals · activity summaries · metric history · transcripts*.
-- **Copy:** *The body, as an API.* · MCP · OAUTH 2.1 · SCOPED · REVOCABLE
-- It feels like infrastructure hidden inside a piece of jewellery.
-
-### 08 · Privacy (27.4 – 30.6)
-- Everything collapses: arcs pull back into the ring, nodes go out. Darkness. The ring is alone.
-- A phone outline appears beside it, and one boundary closes around both: *your ring, your phone*. A voice wave
-  crosses to the phone, becomes text, and the audio dissolves inside the boundary. Only text and numbers go further,
-  and only if you sync.
-- Permissions set themselves:
-  - LATEST VITALS: allowed
-  - READ CAPTURES: not granted
-  - EXTERNAL AI (MCP): off by default
-  - VOICE AUDIO: stays on your phone
-  - LOCATION: not collected
-- **Copy:** *Your data belongs to you.* · *Every insight is computed on your phone. No feeds, no ads, nothing sold.*
-
-### 09 · Five days (30.6 – 34.0)
-- The ring comes back into focus as an object. Its scale snaps down to something close to real size:
-  **2.4 grams. Aerospace titanium.**
-- A thin charge arc circles the ring. Five days pass in light: each day the key light makes one sunrise-to-night
-  sweep around the ring, and the arc gets shorter. **DAY 1 … DAY 5**. The ring doesn't move.
-- The triangular dock rises. The ring settles onto it and the arc refills over **1 hour**.
-- **Copy:** *Five days. One charge.* → *An hour on the dock. Ready again.*
-
-### 10 · Your sixth sense (34.0 – 37.0)
-- The dock sinks away. Darkness, and the opening's single travelling light. The same ring, turning slowly.
-- **YOUR SIXTH SENSE.** The VΞXO wordmark draws itself. **Get the Vexo app** · *Join the waitlist*.
-  The finish can be switched live: Silver · Gold · Graphite.
-- It's the same shot as the opening, but now we know what's inside.
-
-### Coda (normal scrolling)
-Official photography (on hand, at night, on moss), a one-line spec strip, "A Day With Vexo" (the official demo
-film, loaded only on click), women's health, the wellness disclaimer, and the footer.
-
----
-
-## 4. How the ring carries each transition
-
-| From → to | The ring's move |
+| Claim | Source |
 |---|---|
-| 01 → 02 | turns its aperture to the lens and the camera flies in |
-| 02 → 03 | the camera pulls back out through the aperture; orbits fold flat; the ring drifts in front of the chest |
-| 03 → 04 | the ring rolls about its axis until the mic port faces us; the camera closes in |
-| 04 → 05 | the haptic ripple spreads outward and becomes the orbit where the apps appear |
-| 05 → 06 | apps fall back into the ring along their threads; the ring sits centred in silence |
-| 06 → 07 | the app shrinks to one node; the ring becomes the hub |
-| 07 → 08 | arcs pull back into the ring (everything returns to it) |
-| 08 → 09 | the boundary contracts into the charge arc |
-| 09 → 10 | the dock sinks; the ring rises into the opening's light |
+| "Already on it." · "Your AI. On your wrist." | vexoai.com hero |
+| "Just say it." · "Built-in microphone." | vexoai.com |
+| "In tune with you." · "Health sensors." | vexoai.com |
+| Health sensing: **heart rate, skin temperature and motion** | vexoai.com/checkout, "Band, in detail" |
+| Quiet haptics, "A gentle tap, just for you." · Bluetooth LE · Onboard memory, "Storage, built right in." | /checkout |
+| "Woven comfort. Thoughtfully connected." · $199 · Graphite / Pearl / Moss | /checkout |
+| Vexo Intelligence: Creating, Memory, Reservations, Uber, DoorDash, Shopping, Email | vexoai.com |
+| Example: "Make me a pitch deck for a late-night coffee shop. Four slides. Keep it sharp." → Listening → Creating live | vexoai.com demo |
+| "Your world. Working together." Gmail, Google Calendar, Google Drive, Notion, GitHub, Render, Supabase **available**; the rest coming soon | vexoai.com connectors |
+| "Every AI today waits for a prompt. Vexo already has the context…" | YC company page |
+| "…turns what it hears into private memories and acts on them, booking the table, sending the follow-up, and ordering the groceries through the apps you already use." | YC |
+| "It's a woven bracelet with a microphone and health sensors. No screen, and nothing to open." | YC |
+| "Vexo never keeps your audio. Only you can see your memories, and you can delete them anytime." | YC |
 
-The camera and ring move on **monotone cubic splines** (continuous velocity, no stop-and-go at keyframes),
-followed by a critically damped spring. The ring has inertia: stop scrolling and it settles, it doesn't freeze.
+### Removed (ring-only, or not claimed for the band)
+
+- The ring, the finger, "Your sixth sense", double-tap-to-speak, 2.4 g, aerospace titanium and five-day battery.
+- HRV, blood oxygen, respiration, sleep and women's health: the band claims heart rate, skin temperature and motion only.
+- Vexo Studio app-building, the 100+ app marketplace, MCP/OAuth and the developer platform, which were all from the ring page.
+- The dock.
+- **The voice gesture is not specified** for the band, so the film shows the microphone listening and never shows a tap
+  or button press.
 
 ---
 
-## 5. Technique per scene
+## 2. Codebase audit: what was built around the ring
 
-| | Technique |
+| File | Ring assumption | Now |
+|---|---|---|
+| `gl/ringGeometry.js`, `gl/Ring.jsx` | Procedural lathe ring, sensor pill, engraving strip, mic bezel | **Deleted.** `gl/Band.jsx` loads Vexo's GLB |
+| `gl/studio.js`, `gl/textures.js` | Ring shader (θ-based ripples, lathe parts), ring engravings | **Deleted.** GLB PBR materials + studio PMREM environment (`gl/studioEnv.js`) |
+| `gl/Signals.jsx` | Seven orbits around a ring's circumference (HRV, SpO₂, sleep…) | **Rewritten** as `gl/Health.jsx`: three signals travelling along the wrist |
+| `gl/Body.jsx`, `bodyContours.js` | Whole body, hand over the heart behind a ring | **Rewritten** as `gl/Wrist.jsx`: a contour-line forearm and hand the band is worn on |
+| `gl/Voice.jsx` | Double tap on a ring, rings contracting into a ring's mic | **Rewritten**: voice into the band's edge microphone, no gesture |
+| `gl/Ecosystem.jsx`, `glyphs.js` | Ring app marketplace orbit | **Replaced** by `gl/Context.jsx`: memories and actions around the wrist |
+| `gl/Network.jsx` | MCP / OAuth developer network | **Replaced**: memory → action paths to the apps you already use |
+| `gl/Privacy.jsx` | Ring-and-phone boundary | **Rewritten**: audio dissolves and only memories remain |
+| `gl/Days.jsx`, `gl/Dock.jsx` | Five-day battery dial, triangle charging dock | **Deleted** (no band battery claim) |
+| All `overlay/scenes/*` | Ring copy | **Rewritten** against the table above |
+| `config.js`, `Coda.jsx`, `Fallback.jsx`, `index.html` | Ring links, photos, specs, CTA | **Rewritten** for the band: Buy Band $199 → /checkout |
+
+---
+
+## 3. Scenes (story time ≈ screens)
+
+**01 · Already on it** (0 – 3.6)
+- Black. A macro shot on the weave: one raking light crosses it slowly and the woven texture appears.
+- The camera drifts along the strap. The titanium loop catches the light and VΞXO slides past.
+- Pulling back, the whole band emerges and hangs in the dark, turning slowly.
+- *Already on it. · Your AI. On your wrist.*
+
+**02 · Woven comfort** (3.6 – 8.2)
+- The band turns in 3D. Light picks out the weave, the loop closure, the module, the side button and the microphone.
+- The module opens up along its axis. Vexo's own model shows what's inside, labelled only with the site's own
+  "Band, in detail":
+  - microphone
+  - health sensing (skin-side board)
+  - quiet haptics (motor)
+  - Bluetooth LE
+  - onboard memory
+- It closes again. *Woven comfort. Thoughtfully connected.*
+
+**03 · On your wrist** (8.2 – 11.2), the signature transition
+- A forearm and hand are drawn in light. The band loosens, turns to line up with the arm, slides over the hand, and
+  **cinches** onto the wrist with the module on top. It settles with a spring and one gentle haptic pulse.
+- *No screen, and nothing to open.*
+
+**04 · Vexo already has the context** (11.2 – 15.6)
+- The band stays on the wrist and the day happens around it. Conversation lines appear in space as words carried on
+  small waveforms:
+  - *"Let's do dinner at 8."*
+  - *"Can you send Sarah the deck?"*
+  - *"We're out of groceries."*
+- Each line collapses into the microphone and crystallises as a quiet memory beside the band.
+
+**05 · Acts before you ask** (15.6 – 19.8)
+- Each memory becomes an action along a path: **REAL WORLD → VEXO → MEMORY → ACTION**:
+  - Dinner → *Table booked, 8:00* (Reservations)
+  - Sarah → *Follow-up sent* (Email)
+  - Groceries → *Order placed* (DoorDash)
+- A gentle haptic tap confirms.
+- The apps you already use ring the scene. The available ones are bright; the coming-soon ones are dim.
+- *Already on it.*
+
+**06 · Just say it** (19.8 – 23.8)
+- The camera moves to the band's top edge and the microphone port. A voice waveform flows into it: Vexo's own demo
+  line, *"Make me a pitch deck for a late-night coffee shop. Four slides. Keep it sharp."*
+- *Listening → Creating live.* Four slides assemble in space above the wrist, "After Hours".
+- *Just say it. · Built-in microphone.*
+
+**07 · In tune with you** (23.8 – 27.4)
+- The camera moves beneath the wrist and the arm becomes translucent. The sensor window faces us and its green and
+  red LEDs wake.
+- Three signals, and only these three:
+  - **heart rate**: a PPG pulse travelling up the wrist
+  - **skin temperature**: warmth spreading through the contours
+  - **motion**: the motion readout follows your own scroll
+- *In tune with you. · Heart rate, skin temperature and motion.*
+
+**08 · Private by design** (27.4 – 31.0)
+- Pull back. Conversations surround the wearer as waveforms and words.
+- Then **the audio disappears**: every waveform dissolves and only the structured memories remain. One is deleted.
+- *Vexo never keeps your audio. · Only you can see your memories, and you can delete them anytime.*
+
+**09 · Make it yours** (31.0 – 35.0)
+- Darkness. The arm slides away and the band comes off the wrist, floating back to centre under product lighting.
+  It turns slowly: weave, titanium, engraving.
+- *Already on it.* **Buy Band, $199** · Graphite / Pearl / Moss, switched live on the model.
+
+**Coda.** Official lifestyle photography in all three finishes, "Band, in detail", the connectors, and the footer.
+
+---
+
+## 4. Technique
+
+| | |
 |---|---|
-| Ring, dock | Procedural lathe + parts, custom studio shader (analytic softboxes, Fresnel, thermal + ripple + LED terms) |
-| All lines | `LineField`: one GPU ribbon engine. Static shapes come from a float texture; waves, orbits and arcs are evaluated in the vertex shader, so there are no per-frame buffer uploads |
-| Readouts, labels, headlines | DOM, projected from 3D anchors every frame (crisp, selectable, screen-reader visible) |
-| Studio app | DOM + CSS 3D, SVG threads |
-| Particles | One GPU point system, used only for dust in the light and scroll-driven motion |
-| Scroll | Lenis (wheel smoothing) → story time via PACE slow-motion zones. React never re-renders on scroll. |
-
----
-
-## 6. Mobile
-
-- **Portrait layout:** every camera and ring keyframe has a mobile variant. The ring sits in the upper third, type
-  in the lower third.
-- Tags pin to fixed rows instead of long leader lines. The Studio app assembles *below* the ring. API nodes stack
-  vertically, and the ecosystem orbit becomes a tall ellipse.
-- Native touch scrolling (no scroll hijacking). A damped follower keeps it smooth.
-- DPR capped at 1.5, particle and ribbon counts at a third, simpler contour body.
-
-## 7. Performance & accessibility
-
-- **Zero image downloads for the film.** Engraving, grille and dock print are drawn on canvas at start-up.
-  Official photos lazy-load in the coda.
-- **Shaders precompiled** behind the loader (`gl.compile`), so nothing hitches mid-scroll.
-- **Adaptive quality:** a frame-time monitor steps DPR down (1.75 → 1.25 → 1.0 → 0.75). Rendering pauses once the
-  film is scrolled past.
-- **No WebGL2:** a static, typographic version of the film with official photography.
-- **`prefers-reduced-motion`:** no wheel inertia, idle motion frozen, camera flights shortened into dissolves,
-  haptic tremor removed.
-- **Skip the film** link, a keyboard-reachable scene index, and one live region that announces the scene.
+| Band | Vexo's GLB via `GLTFLoader` + `DRACOLoader`. Official PBR materials: woven normal and roughness maps, sheen on the textile, titanium. Parts are grouped by node name for the exploded view, LEDs and finishes. |
+| Light | A studio PMREM (strip softboxes) for reflections, plus animated real lights: a raking spot for the weave, key, rim. `scene.environmentIntensity` handles the fades to black. |
+| Wrist | A parametric forearm and hand lofted from elliptical sections. It draws as luminous contour loops (`LineField`) over a near-black fresnel occluder, so it reads as a solid wrist the band sits around. |
+| Lines | The same `LineField` engine: waveforms, memory paths, health pulses, haptic ripples |
+| Type & UI | DOM, projected from 3D anchors (microphone, sensor window, loop closure): memories, actions, slides, labels |
+| Mobile | Portrait tracks. The arm is angled up the frame, and the words and memories stack above and below. |
+| Perf | The GLB loads with a progress loader (about 7 MB). Internals are hidden except during the exploded view. Transmission is disabled on the sensor glass. DPR is adaptive. |

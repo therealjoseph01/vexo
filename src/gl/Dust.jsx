@@ -3,12 +3,11 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { S, layout } from '../film/director'
 import { film } from '../film/store'
-import { ENV } from './studio'
 
 /*
   Dust in the light. It exists for two reasons only:
-  in Scene 01 it gives the darkness depth and catches the travelling light (forward scatter),
-  and in Scene 02 it *is* the motion signal — it is kicked by the speed of your own scroll.
+  in the opening it gives the darkness depth and catches the raking light (forward scatter),
+  and in the sensor scene it *is* the motion signal — it is kicked by the speed of your own scroll.
 */
 const vert = /* glsl */ `
   attribute vec3 aSeed;
@@ -24,7 +23,7 @@ const vert = /* glsl */ `
     vec3 toP = normalize(wp.xyz - cameraPosition);
     // only motes inside the beam, between you and the light, are visible (forward scatter)
     float fwd = pow(max(dot(toP, uLight), 0.0), 14.0);
-    // during 02 (motion) a faint field is visible everywhere so your scroll can shove it
+    // during the motion beat a faint field is visible everywhere so your scroll can shove it
     vA = (uBase + 1.4 * fwd) * (0.3 + 0.7 * aSeed.y) * step(0.5, aSeed.z);
     vec4 mv = viewMatrix * wp;
     gl_Position = projectionMatrix * mv;
@@ -84,12 +83,13 @@ export function Dust() {
     u.uTime.value = film.reduced ? 0 : state.clock.elapsedTime
     u.uPR.value = state.gl.getPixelRatio()
     u.uA.value = S.dust + S.dustKick * 0.8
-    u.uBase.value = 0.22 * S.dustKick
+    u.uBase.value = 0.22 * S.dustKick + 0.1 * S.dust
     // motion: scroll velocity → a physical shove, which decays
     const target = film.reduced ? 0 : Math.max(-1.2, Math.min(1.2, film.vel * 0.9)) * S.dustKick
     kick.current += (target - kick.current) * (1 - Math.exp(-dt * 6))
     u.uKick.value = kick.current
-    u.uLight.value.copy(ENV.uBoxDir.value[0])
+    // the light the motes scatter: the raking spot (direction from its target back to the source)
+    u.uLight.value.subVectors(S.light.spotPos, S.light.spotTgt).normalize()
     ref.current.visible = u.uA.value > 0.002
   })
   return <points ref={ref} geometry={geo} material={mat} frustumCulled={false} renderOrder={5} />

@@ -1,27 +1,31 @@
 import * as THREE from 'three'
 import { track, track3, w, env, range, clamp, lerp, smooth, pulse } from './timeline'
-import { ENV } from '../gl/studio'
+import { SB, WORN_BASIS, pointLocal } from '../gl/bandSpec'
+import { WRIST_X, armTop } from '../gl/armGeometry'
 
 /*
   THE DIRECTOR'S SCRIPT
   ---------------------
   Every visual value in the film is a pure function of story time `t` (plus wall-clock `time`
-  for things that breathe on their own). computeState() writes targets into S; the Stage then
-  passes camera and ring through critically damped springs, so the ring moves with weight.
+  for things that breathe on their own). computeState() writes targets into S; the Stage passes
+  camera, band and arm through critically damped springs and composes the final matrices.
 
-  01 Your sixth sense   0.0 – 3.4
-  02 Enter the ring     3.4 – 8.0
-  03 The body           8.0 – 11.4
-  04 Double tap         11.4 – 15.2
-  05 Every app          15.2 – 19.2
-  06 Vexo Studio        19.2 – 24.2
-  07 Body as an API     24.2 – 27.4
-  08 Privacy            27.4 – 30.6
-  09 Five days          30.6 – 34.0
-  10 Vexo               34.0 – 37.0
+  The band has two lives: floating in the studio (Euler pose), and worn (placed on the arm).
+  S.worn.k blends between them. While worn, the band stays where it is and the arm moves
+  through it — a hand pushing into a bracelet — so the protagonist never leaves the frame.
+
+  01 Already on it        0.0 – 3.6    darkness → weave → light → the whole band
+  02 Woven comfort        3.6 – 8.2    microphone, sensors, inside the module
+  03 On your wrist        8.2 – 11.2   a hand slides through; the band cinches and settles
+  04 It has the context   11.2 – 15.6  three conversations collapse into the microphone
+  05 Acts before you ask  15.6 – 19.8  memory → action
+  06 Just say it          19.8 – 23.8  the microphone, a deck
+  07 In tune with you     23.8 – 27.4  the sensor window, three signals
+  08 Private by design    27.4 – 31.0  the audio disappears, memories remain
+  09 Make it yours        31.0 – 35.0  off the wrist, back into the light
 */
 
-const TAU = Math.PI * 2
+const PI = Math.PI
 const V3 = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z)
 const col = (h) => new THREE.Color(h)
 
@@ -29,281 +33,361 @@ export const layout = { mobile: false, aspect: 1.6 }
 
 export const S = {
   // camera (targets; Stage smooths)
-  cam: V3(0, 0, 12),
+  cam: V3(0, 0, 8),
   tgt: V3(),
   fov: 30,
-  // ring rig (targets)
-  ringT: { pos: V3(), rx: 0, ry: 0, rz: 0, scale: 1 },
-  // ring rig (smoothed, built by Stage)
-  ring: { pos: V3(), quat: new THREE.Quaternion(), scale: 1, opacity: 1, rx: 0, ry: 0, rz: 0 },
-  plane: new THREE.Matrix4(), // the ring's orbital plane (local XY), for traces that circle it
-  led: { g: 0, r: 0 },
-  beat: 0,
-  hrLive: 62,
+  camAz: 0,
+  // floating band pose (targets)
+  float: { pos: V3(), rx: 0, ry: PI, rz: 0, scale: 1 },
+  // worn: k = 0 floating … 1 on the arm; slide = cm from the wrist towards the fingertips; cinch = loop scale
+  worn: { k: 0, slide: 24, cinch: 1.15 },
+  // the arm, expressed by where the band sits on it (world), the fingers' direction and the back of the wrist
+  armT: { pos: V3(), f: V3(1, 0, 0), d: V3(0, 1, 0) },
+  // composed by the Stage
+  band: { matrix: new THREE.Matrix4(), alpha: 1, explode: 0, wrapAlpha: 1, ledG: 0, ledR: 0 },
+  arm: { matrix: new THREE.Matrix4(), alpha: 0, solid: 1, rim: 0, scan: 0, contact: 0, pulse: 0, tint: 0, warm: 0 },
+  pts: {}, // world positions of named points on the band (Stage)
+  light: { spotPos: V3(), spotTgt: V3(), spot: 0, spotAngle: 0.2, key: 0, rim: 0, fill: 0, top: 0, env: 0 },
   dust: 0,
   dustKick: 0,
-  sig: { hr: 0, hrv: 0, spo2: 0, resp: 0, temp: 0, sleep: 0, motion: 0, fold: 0, a: 0 },
-  body: { reveal: 0, flow: 0, data: 0, out: 0, a: 0 },
-  voice: { tap: 0, wave: 0, front: 0, rings: 0, haptic: 0, ripple: 0, orbit: 0 },
-  apps: { a: 0, emerge: 0, threads: 0, market: 0, retract: 0, spin: 0 },
-  studio: { a: 0, stream: 0, breath: 0, code: 0, build: 0, wire: 0, credit: 0, shrink: 0 },
-  api: { a: 0, grow: 0, packets: 0, collapse: 0 },
-  priv: { a: 0, boundary: 0, voice: 0, perms: 0, out: 0 },
-  days: { a: 0, small: 0, arc: 0, day: 0, level: 1, dock: 0, charge: 0, sink: 0 },
-  fin: { a: 0 },
+  haptic: { age: 0, a: 0 },
+  ctx: { a: 0, draw: [0, 0, 0], fold: [0, 0, 0], mem: [0, 0, 0], path: [0, 0, 0], act: [0, 0, 0], crumb: 0 },
+  voice: { a: 0, draw: 0, fold: 0, listen: 0, create: 0 },
+  health: { a: 0, hr: 0, temp: 0, motion: 0 },
+  priv: { a: 0, waves: 0, dissolve: 0, remain: 0, del: 0 },
+  fin: { a: 0, cta: 0 },
+  beat: 0,
   bg: { top: col('#000'), bot: col('#000'), glow: col('#000'), glowA: 0, glowX: 0.5, glowY: 0.5, glowR: 0.5 },
   exposure: 1,
 }
 
 /* ------------------------------------------------------------------ */
+/* Geometry helpers (also used to aim the camera at parts of the band) */
+/* ------------------------------------------------------------------ */
+const _m = new THREE.Matrix4()
+const _q = new THREE.Quaternion()
+const _e = new THREE.Euler(0, 0, 0, 'YXZ')
+const _s = V3()
+const _v = V3()
+const _f = V3()
+const _d = V3()
+const _z = V3()
+
+export function armBasis(f, d, out) {
+  _f.copy(f).normalize()
+  _d.copy(d).addScaledVector(_f, -_d.copy(d).dot(_f)).normalize()
+  _z.crossVectors(_f, _d)
+  return out.makeBasis(_f, _d, _z)
+}
+
+// where the band's centre sits in arm space (cm) for a given slide and cinch: resting on top of the arm
+export function wornOffset(slide, cinch, out) {
+  const x = WRIST_X + slide
+  return out.set(x, armTop(x) - 1.8 * cinch, 0.105 * cinch)
+}
+
+function floatMatrix(pos, rx, ry, rz, scale, out) {
+  _e.set(rx, ry, rz, 'YXZ')
+  _q.setFromEuler(_e)
+  return out.compose(pos, _q, _s.setScalar(SB * scale))
+}
+function wornMatrix(pos, f, d, cinch, out) {
+  armBasis(f, d, out)
+  _q.setFromRotationMatrix(out).multiply(WORN_BASIS)
+  return out.compose(pos, _q, _s.setScalar(SB * cinch))
+}
+
+/* ------------------------------------------------------------------ */
 /* Tracks                                                               */
 /* ------------------------------------------------------------------ */
-// Camera is expressed as a target + spherical offset (dist, azimuth, elevation) so moves arc.
-function buildTracks(m) {
-  const D = (d, dm) => (m ? (dm ?? d * 1.62) : d)
-  const T = {}
-  T.tgt = track3([
-    [0, [0, -0.05, 0]],
-    [1.1, [0, -0.1, 0]],
-    [2.2, [0, m ? -0.9 : -0.55, 0]], // lift the ring above the title
-    [2.9, [0, -0.25, 0]],
-    [3.4, [0, 0, 0]],
-    [3.95, [0, -0.62, 0]],
-    [4.45, [0, -0.96, 0]],
-    [5.3, [0, -0.96, 0.02]],
-    [6.0, [0, -0.25, 0]],
-    [6.7, [0, 0, 0]],
-    [8.0, [0, 0, 0]],
-    [8.8, [0, m ? -0.2 : 0.1, 0]],
-    [11.2, [0, m ? -0.2 : 0.1, 0]],
-    [12.0, [0, 0.02, 0.9]],
-    [12.4, [0, 0.03, 1.12]],
-    [14.5, [0, 0.03, 1.12]],
-    [15.3, [0, 0, 0]],
-    [15.9, [0, 0.55, 0]],
-    [18.6, [0, 0.45, 0]],
-    [19.2, [0, 0, 0]],
-    [19.8, [0, 0, 0]],
-    [21.6, [0, 0, 0]],
-    [22.4, [m ? 0 : 0.6, m ? -1.55 : 0, 0]],
-    [23.9, [m ? 0 : 0.6, m ? -1.55 : 0, 0]],
-    [24.8, [0, m ? -0.3 : 0, 0]],
-    [27.4, [0, m ? -0.3 : 0, 0]],
-    [28.2, [0, 0, 0]],
-    [30.6, [0, m ? -0.25 : 0, 0]],
-    [31.6, [0, m ? -0.15 : 0, 0]],
-    [33.2, [0, m ? -0.15 : 0, 0]],
-    [33.8, [0, -0.55, 0]],
-    [34.4, [0, -0.45, 0]],
-    [35.2, [0, m ? -1.25 : -0.95, 0]],
-    [37, [0, m ? -1.3 : -1.0, 0]],
-  ])
-  T.dist = track([
-    [0, D(13.2, 19)],
-    [2.2, D(12.0, 17.8)],
-    [2.9, D(9.0, 13.5)],
-    [3.4, D(6.2, 9.4)],
-    [3.95, D(3.3, 4.4)],
-    [4.45, D(2.25, 2.9)],
-    [5.3, D(2.05, 2.7)],
-    [6.0, D(5.2, 8)],
-    [6.7, D(10.4, 16.5)],
-    [8.0, D(11.2, 17.5)],
-    [8.8, D(11.0, 17)],
-    [11.2, D(10.6, 16.5)],
-    [12.0, D(5.2, 10.5)],
-    [12.4, D(3.55, 8.4)],
-    [14.5, D(3.3, 8.0)],
-    [15.3, D(9.5, 15)],
-    [15.9, D(13.8, 20)],
-    [16.8, D(11.4, 16.5)],
-    [17.6, D(10.6, 15.5)],
-    [18.4, D(14.2, 20.5)],
-    [19.2, D(15.0, 22)],
-    [19.8, D(10.5, 16)],
-    [21.6, D(10.0, 15)],
-    [22.4, D(11.2, 17)],
-    [23.9, D(11.2, 17)],
-    [24.8, D(14.0, 21)],
-    [27.4, D(14.2, 21)],
-    [28.2, D(11.5, 17)],
-    [30.6, D(11.0, 16.5)],
-    [31.0, D(13.0, 19)],
-    [31.6, D(11.8, 17)],
-    [33.2, D(11.8, 17)],
-    [33.8, D(10.4, 15.5)],
-    [34.4, D(11.5, 17)],
-    [35.2, D(13.6, 19.5)],
-    [37, D(12.8, 18.8)],
-  ])
-  T.az = track([
-    [0, 0],
-    [3.4, 0],
-    [4.45, m ? 0.2 : 0.42],
-    [5.3, m ? 0.26 : 0.55],
-    [6.0, 0],
-    [15.3, 0],
-    [15.9, 0.2],
-    [16.8, TAU * 0.32],
-    [17.6, TAU * 0.62],
-    [18.4, TAU * 0.9],
-    [19.2, TAU],
-    [37, TAU],
-  ])
-  T.el = track([
-    [0, 0.03],
-    [2.2, 0.04],
-    [3.4, 0.03],
-    [3.95, 0.5],
-    [4.45, 0.66],
-    [5.3, 0.62],
-    [6.0, 0.5],
-    [6.7, 0.3],
-    [8.0, 0.28],
-    [8.8, 0.04],
-    [11.2, 0.05],
-    [12.0, 0.34],
-    [12.4, 0.36],
-    [14.5, 0.33],
-    [15.3, 0.32],
-    [15.9, 0.34],
-    [16.8, 0.16],
-    [17.6, 0.12],
-    [18.4, 0.42],
-    [19.2, 0.3],
-    [19.8, 0.06],
-    [24.8, 0.08],
-    [27.4, 0.08],
-    [28.2, 0.03],
-    [30.6, 0.05],
-    [31.6, 0.1],
-    [33.2, 0.1],
-    [33.8, 0.3],
-    [34.4, 0.22],
-    [35.2, 0.04],
-    [37, 0.05],
-  ])
+// Camera: target + spherical offset (dist, azimuth, elevation), so moves arc.
+const toArr = (v) => [v.x, v.y, v.z]
 
-  // ring rig
-  const HALF = Math.PI / 2
-  T.rx = track([
-    [0, HALF - 0.19],
-    [2.2, HALF - 0.3],
-    [2.9, 0.7],
-    [3.4, 0.05],
-    [5.3, 0.02],
-    [6.0, -0.45],
-    [6.7, -1.02],
-    [8.0, -1.02],
-    [8.8, 0.3],
-    [11.2, 0.26],
-    [12.0, HALF - 0.05],
-    [14.5, HALF],
-    [15.3, -0.6],
-    [15.9, -0.95],
-    [19.2, -0.95],
-    [19.8, 0.25],
-    [23.9, 0.2],
-    [24.8, 0.34],
-    [27.4, 0.34],
-    [28.2, 0.22],
-    [30.6, 0.3],
-    [33.2, 0.32],
-    [33.8, HALF],
-    [34.4, HALF],
-    [35.2, HALF - 0.2],
-    [37, HALF - 0.24],
-  ])
+function buildTracks(m) {
+  const D = (d, k = 1.7) => (m ? d * k : d)
+  const T = {}
+
+  /* ---- the floating band ---- */
   T.ry = track([
-    [0, 0.35],
-    [2.2, 0.85],
-    [3.4, 0.05],
-    [5.3, 0],
-    [6.7, 0],
-    [8.0, 0.1],
-    [8.8, -0.62],
-    [11.2, -0.5],
-    [12.0, 0],
-    [15.3, 0],
-    [19.8, 0.5],
-    [23.9, 0.42],
-    [24.8, -0.4],
-    [27.4, -0.3],
-    [28.2, 0.2],
-    [30.6, -0.2],
-    [33.2, -0.55],
-    [33.8, -0.1],
-    [34.4, 0],
-    [37, 0.6],
+    [0, PI + 0.3],
+    [2.0, PI + 0.12],
+    [2.4, PI + 0.22],
+    [3.6, PI + 0.62],
+    [4.3, PI + 0.9],
+    [4.75, PI + 0.3],
+    [5.35, 2 * PI + 0.35],
+    [5.85, 2 * PI + PI / 2 + 0.4],
+    [7.3, 2 * PI + PI / 2 + 0.55],
+    [7.9, 3 * PI + 0.4],
+    [8.4, 3 * PI + 0.5],
+    [31, 3 * PI + 0.5],
+    [33.0, 3 * PI + 0.35],
+    [35, 3 * PI + 0.85],
   ])
-  // roll about the ring's own axis: which details (mic, sensor) face the lens
-  const PI = Math.PI
+  T.rx = track([
+    [0, 0.05],
+    [2.0, 0.08],
+    [3.0, 0.3],
+    [3.6, 0.34],
+    [4.3, 0.36],
+    [4.75, 0.98],
+    [5.35, 0.82],
+    [5.85, 0.2],
+    [7.3, 0.22],
+    [7.9, 0.3],
+    [33.0, 0.3],
+    [35, 0.36],
+  ])
   T.rz = track([
-    [0, PI],
-    [2.2, PI],
-    [3.4, TAU], // sensor pill at the bottom for the macro
-    [5.3, TAU],
-    [6.7, 3 * PI], // half roll on the way out: mic in front, pill visible through the aperture
-    [8.0, 3 * PI + 0.2],
-    [8.8, 3 * PI + 0.35],
-    [11.2, 3 * PI + 0.35],
-    [12.0, 2 * TAU], // mic to the lens
-    [15.3, 2 * TAU],
-    [19.2, 2 * TAU + 1.6],
-    [19.8, 2 * TAU + 1.9],
-    [23.9, 2 * TAU + 2.2],
-    [30.6, 2 * TAU + 2.9],
-    [33.8, 2 * TAU + 3.1],
-    [35.2, 2 * TAU + PI],
-    [37, 2 * TAU + PI + 0.2],
+    [0, 0],
+    [35, 0],
   ])
   T.pos = track3([
     [0, [0, 0, 0]],
-    [8.0, [0, 0, 0]],
-    [8.8, [0, m ? 0.5 : 0.05, 1.2]],
-    [11.2, [0, m ? 0.5 : 0.05, 1.2]],
-    [12.0, [0, 0, 0]],
-    [19.8, [0, 0, 0]],
-    [21.6, [0, 0, 0]],
-    [22.4, [m ? 0 : -2.35, m ? 1.55 : 0.1, 0]],
-    [23.9, [m ? 0 : -2.35, m ? 1.55 : 0.1, 0]],
-    [24.8, [0, m ? 0.4 : 0, 0]],
-    [27.4, [0, m ? 0.4 : 0, 0]],
-    [28.2, [0, m ? 1.15 : 0, 0]],
-    [30.6, [0, m ? 1.15 : 0, 0]],
-    [31.6, [0, m ? 0.3 : 0.1, 0]],
-    [33.2, [0, m ? 0.3 : 0.1, 0]],
-    [33.8, [0, -1.22, 0]],
-    [34.4, [0, -1.22, 0]],
-    [35.2, [0, 0, 0]],
+    [8.4, [0, 0, 0]],
+    [32.2, [0, 0, 0]],
+    [33.2, [0, m ? 0.55 : 0.18, 0]],
+    [35, [0, m ? 0.6 : 0.22, 0]],
   ])
   T.scale = track([
     [0, 1],
-    [8.0, 1],
-    [8.8, m ? 0.62 : 0.72],
-    [11.2, m ? 0.62 : 0.72],
-    [12.0, 1],
-    [15.3, 1],
-    [19.8, 1],
-    [21.6, 1],
-    [22.4, m ? 0.5 : 0.82],
-    [23.9, m ? 0.5 : 0.82],
-    [24.8, 0.82],
-    [27.4, 0.82],
-    [28.2, m ? 0.6 : 1],
-    [30.6, m ? 0.6 : 1],
-    [30.95, 0.32],
-    [31.3, 0.32],
-    [31.6, 0.92],
-    [33.2, 0.92],
-    [33.8, 0.84],
-    [34.4, 0.84],
-    [35.2, 1],
+    [35, 1],
   ])
+
+  /* ---- the arm, and the band on it ---- */
+  const F1 = m ? [0.08, 0.96, -0.26] : [0.97, 0.06, -0.24]
+  const D1 = m ? [-0.05, 0.28, 0.96] : [-0.06, 0.8, 0.6]
+  T.armF = track3([
+    [8.2, F1],
+    [31, F1],
+  ])
+  T.armD = track3([
+    [8.2, D1],
+    [10.4, D1],
+    [11.4, m ? [-0.2, 0.2, 0.96] : [0.0, 0.95, 0.3]],
+    [19.6, m ? [-0.2, 0.2, 0.96] : [0.0, 0.95, 0.3]],
+    [20.4, m ? [-0.1, 0.25, 0.96] : [-0.04, 0.86, 0.5]],
+    [31, m ? [-0.1, 0.25, 0.96] : [-0.04, 0.86, 0.5]],
+    [31.6, D1],
+  ])
+  T.armP = track3([
+    [8.2, [0, 0, 0]],
+    [35, [0, 0, 0]],
+  ])
+  const OUT = 22 - WRIST_X // band just beyond the fingertips
+  T.slide = track([
+    [8.2, OUT],
+    [8.95, OUT],
+    [9.95, 0],
+    [31.35, 0],
+    [32.35, OUT + 2],
+  ])
+  // the loop loosens to pass over the hand, then cinches (the Stage adds the physical settle)
+  T.cinch = track([
+    [8.2, 1.15],
+    [9.9, 1.15],
+    [10.08, 1.0],
+    [31.2, 1.0],
+    [31.5, 1.15],
+  ])
+  T.wornK = track([
+    [8.3, 0],
+    [8.95, 1],
+    [32.3, 1],
+    [33.1, 0],
+  ])
+
+  // world position of a band point at story time t (floating or worn, before smoothing)
+  const M = new THREE.Matrix4()
+  const bandAt = (t, name, explode = 0) => {
+    const k = T.wornK(t)
+    if (k < 0.5) floatMatrix(T.pos(t, V3()), T.rx(t), T.ry(t), T.rz(t), T.scale(t), M)
+    else wornMatrix(T.armP(t, V3()), T.armF(t, V3()), T.armD(t, V3()), T.cinch(t), M)
+    return toArr(pointLocal(name, explode, V3()).applyMatrix4(M))
+  }
+  // a camera direction expressed in the arm's frame (fingers f, back of the wrist d, across s) → az / el
+  const armDir = (t, a, b, c) => {
+    const f = T.armF(t, V3()).normalize()
+    const d = T.armD(t, V3())
+    d.addScaledVector(f, -d.dot(f)).normalize()
+    const s = V3().crossVectors(f, d)
+    const v = V3().addScaledVector(f, a).addScaledVector(d, b).addScaledVector(s, c).normalize()
+    return { az: Math.atan2(v.x, v.z), el: Math.asin(v.y) }
+  }
+  const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+
+  /* ---- camera ---- */
+  const micV = armDir(20.8, 0.78, 0.55, 0.3)
+  const senV = armDir(25.2, 0.25, -0.9, 0.35)
+  T.tgt = track3([
+    [0, add(bandAt(0.4, 'emblem'), [0.12, -0.04, 0])],
+    [0.4, add(bandAt(0.4, 'emblem'), [0.12, -0.04, 0])],
+    [1.4, add(bandAt(1.4, 'flap'), [-0.05, 0.0, 0])],
+    [2.05, add(bandAt(2.05, 'wordmark'), [0, 0.02, 0])],
+    [2.4, add(bandAt(2.4, 'wordmark'), [0.1, 0, 0])],
+    [3.1, [0, m ? -0.9 : -0.42, 0]],
+    [3.6, [0, m ? -0.4 : -0.1, 0]],
+    [4.3, [0, 0, 0]],
+    [4.75, add(bandAt(4.75, 'mic'), [0, -0.02, 0])],
+    [4.95, add(bandAt(4.95, 'mic'), [0, -0.05, 0])],
+    [5.35, add(bandAt(5.35, 'sensor'), [0, 0.05, 0])],
+    [5.5, add(bandAt(5.5, 'sensor'), [0, 0.02, 0])],
+    [5.9, [-0.2, 0, 0]],
+    [7.3, [-0.2, 0, 0]],
+    [7.9, [0, 0, 0]],
+    [8.3, [0, 0, 0]],
+    [8.95, m ? [0.1, -2.2, 0] : [-2.1, -0.1, 0]],
+    [9.95, m ? [0, 0.2, 0] : [0.3, 0.05, 0]],
+    [10.4, [0, 0.05, 0]],
+    [11.2, [0, m ? -0.2 : 0.15, 0]],
+    [11.9, m ? [0, -0.6, 0] : [0, 0.35, 0.6]],
+    [15.4, m ? [0, -0.6, 0] : [0, 0.35, 0.6]],
+    [16.2, m ? [0, -0.9, 0] : [0, 0.3, 1.1]],
+    [19.4, m ? [0, -0.9, 0] : [0, 0.3, 1.1]],
+    [20.3, add(bandAt(20.3, 'mic'), [0, 0.02, 0])],
+    [21.6, add(bandAt(21.6, 'mic'), [0, 0.02, 0])],
+    [22.3, m ? add(bandAt(22.3, 'mic'), [0, 1.2, 0]) : add(bandAt(22.3, 'mic'), [0, 0.55, 0.6])],
+    [23.5, m ? add(bandAt(23.5, 'mic'), [0, 1.2, 0]) : add(bandAt(23.5, 'mic'), [0, 0.55, 0.6])],
+    [24.4, add(bandAt(24.4, 'sensor'), [0, 0, 0])],
+    [27.0, add(bandAt(27.0, 'sensor'), [0, 0, 0])],
+    [27.9, [0, m ? -0.3 : 0.3, 0]],
+    [31.0, [0, m ? -0.3 : 0.3, 0]],
+    [31.5, m ? [0, -0.6, 0] : [-0.6, 0, 0]],
+    [32.3, m ? [0, -0.6, 0] : [-1.2, 0, 0]],
+    [33.2, [0, m ? -0.55 : -0.32, 0]],
+    [35, [0, m ? -0.6 : -0.35, 0]],
+  ])
+  T.dist = track([
+    [0, D(1.35, 1.25)],
+    [0.4, D(1.35, 1.25)],
+    [1.4, D(1.55, 1.3)],
+    [2.05, D(1.3, 1.3)],
+    [2.4, D(1.8, 1.4)],
+    [3.1, D(7.4, 1.75)],
+    [3.6, D(7.0)],
+    [4.3, D(6.8)],
+    [4.75, D(2.3, 1.5)],
+    [4.95, D(2.2, 1.5)],
+    [5.35, D(3.3, 1.5)],
+    [5.5, D(3.3, 1.5)],
+    [5.9, D(7.6)],
+    [7.3, D(7.8)],
+    [7.9, D(7.2)],
+    [8.3, D(7.4)],
+    [8.95, D(10.5, 1.55)],
+    [9.95, D(7.6, 1.55)],
+    [10.4, D(7.2, 1.55)],
+    [11.2, D(6.2, 1.6)],
+    [11.9, D(10.0, 1.6)],
+    [15.4, D(10.4, 1.6)],
+    [16.2, D(12.0, 1.6)],
+    [19.4, D(12.4, 1.6)],
+    [20.3, D(2.4, 1.4)],
+    [21.6, D(2.1, 1.4)],
+    [22.3, D(4.8, 1.8)],
+    [23.5, D(5.0, 1.8)],
+    [24.4, D(4.6, 1.5)],
+    [27.0, D(4.3, 1.5)],
+    [27.9, D(14, 1.5)],
+    [31.0, D(15, 1.5)],
+    [31.5, D(10, 1.6)],
+    [32.3, D(10.5, 1.6)],
+    [33.2, D(7.4, 1.75)],
+    [35, D(7.0, 1.75)],
+  ])
+  T.az = track([
+    [0, 0.55],
+    [0.4, 0.55],
+    [1.4, 0.2],
+    [2.05, -0.3],
+    [2.4, -0.35],
+    [3.1, 0],
+    [4.3, 0],
+    [4.75, 0.15],
+    [5.35, 0.05],
+    [5.9, 0.1],
+    [7.3, 0.12],
+    [7.9, 0],
+    [8.3, 0],
+    [8.95, m ? 0 : 0.1],
+    [9.95, m ? 0 : 0.05],
+    [10.4, 0.05],
+    [11.2, m ? -0.4 : -0.55],
+    [11.9, m ? -0.2 : -1.2],
+    [15.4, m ? -0.25 : -1.25],
+    [16.2, m ? -0.2 : -1.1],
+    [19.4, m ? -0.25 : -1.15],
+    [20.3, micV.az],
+    [21.6, micV.az - 0.08],
+    [22.3, m ? micV.az * 0.5 : micV.az * 0.6],
+    [23.5, m ? micV.az * 0.5 : micV.az * 0.6],
+    [24.4, senV.az],
+    [27.0, senV.az + 0.2],
+    [27.9, m ? -0.3 : -0.9],
+    [31.0, m ? -0.35 : -1.0],
+    [31.5, -0.2],
+    [32.3, -0.1],
+    [33.2, 0],
+    [35, 0],
+  ])
+  T.el = track([
+    [0, 0.08],
+    [1.4, 0.05],
+    [2.05, 0.06],
+    [3.1, 0.12],
+    [4.3, 0.14],
+    [4.75, 0.42],
+    [5.35, 0.52],
+    [5.9, 0.18],
+    [7.3, 0.2],
+    [7.9, 0.14],
+    [8.3, 0.14],
+    [8.95, m ? 0.08 : 0.16],
+    [9.95, m ? 0.12 : 0.2],
+    [10.4, 0.22],
+    [11.2, m ? 0.3 : 0.42],
+    [11.9, m ? 0.2 : 0.62],
+    [15.4, m ? 0.22 : 0.62],
+    [16.2, m ? 0.2 : 0.55],
+    [19.4, m ? 0.2 : 0.55],
+    [20.3, micV.el],
+    [21.6, micV.el],
+    [22.3, micV.el * 0.6],
+    [23.5, micV.el * 0.6],
+    [24.4, senV.el],
+    [27.0, senV.el + 0.05],
+    [27.9, 0.3],
+    [31.0, 0.3],
+    [31.5, 0.14],
+    [32.3, 0.14],
+    [33.2, 0.08],
+    [35, 0.06],
+  ])
+  T.bandAt = bandAt
+
+  // Fixed "stages" in world space for the story's graphics, laid out as screen offsets from the
+  // camera at a reference moment (so they compose for that shot but stay put in the world).
+  const frame = (t0) => {
+    const o = T.tgt(t0, V3())
+    const a = T.az(t0)
+    const e = T.el(t0)
+    const dir = V3(Math.cos(e) * Math.sin(a), Math.sin(e), Math.cos(e) * Math.cos(a))
+    const r = V3().crossVectors(V3(0, 1, 0), dir).normalize()
+    const u = V3().crossVectors(dir, r).normalize()
+    return { o, r, u, dir, dist: T.dist(t0) }
+  }
+  T.frames = { ctx: frame(13.2), act: frame(17.4), voice: frame(22.8), priv: frame(29.2) }
   return T
 }
 
 let TR = buildTracks(false)
+export const tracks = () => TR
+
+// world point at screen offset (x right, y up, z towards the camera; world units) in a story frame
+export function framePoint(key, x, y, out, z = 0) {
+  const f = TR.frames[key]
+  return out.copy(f.o).addScaledVector(f.r, x).addScaledVector(f.u, y).addScaledVector(f.dir, z)
+}
 
 export function ensureLayout(width, height) {
   const mobile = width / height < 0.85
@@ -316,39 +400,8 @@ export function ensureLayout(width, height) {
 if (typeof window !== 'undefined') ensureLayout(window.innerWidth, window.innerHeight)
 
 /* ------------------------------------------------------------------ */
-/* Lighting                                                             */
-/* ------------------------------------------------------------------ */
-const C = {
-  white: col('#ffffff'),
-  warm: col('#fff1e2'),
-  cool: col('#e2ebf7'),
-  green: col('#2dff74'),
-  red: col('#ff2d24'),
-  amber: col('#ffb36b'),
-  dawn: col('#ffc58f'),
-  moon: col('#8ea6de'),
-  ink: col('#e9e9e6'),
-}
 const tmpC = new THREE.Color()
-const tmpV = new THREE.Vector3()
 
-function box(i, dir, up, sx, sy, soft, color, intensity) {
-  ENV.uBoxDir.value[i].copy(dir).normalize()
-  ENV.uBoxUp.value[i].copy(up)
-  ENV.uBoxSize.value[i].set(sx, sy)
-  ENV.uBoxSoft.value[i] = soft
-  ENV.uBoxCol.value[i].copy(color).multiplyScalar(Math.max(0, intensity))
-}
-const UP = V3(0, 1, 0)
-const dKey = V3(-0.62, 0.55, 0.58)
-const dRim = V3(0.78, 0.18, -0.6)
-const dTop = V3(0, 1, 0.12)
-const dFill = V3(0.45, -0.32, 0.84)
-const dSweep = V3()
-const dAcc = V3()
-const upZ = V3(0, 0, -1)
-
-/* ------------------------------------------------------------------ */
 export function computeState(t, time) {
   const m = layout.mobile
 
@@ -357,216 +410,169 @@ export function computeState(t, time) {
   const dist = TR.dist(t)
   const az = TR.az(t)
   const el = TR.el(t)
+  S.camAz = az
   S.cam.set(Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az)).multiplyScalar(dist).add(S.tgt)
   S.fov = 30
 
-  /* ---------- ring rig ---------- */
-  const R = S.ringT
-  R.rx = TR.rx(t)
-  R.ry = TR.ry(t)
-  R.rz = TR.rz(t)
-  // 05: while the camera circles the ecosystem, the ring turns with it — it stays the still centre
-  R.ry += az * w(t, 15.2, 15.9)
-  TR.pos(t, R.pos)
-  R.scale = TR.scale(t)
+  /* ---------- band (floating) ---------- */
+  const F = S.float
+  F.rx = TR.rx(t)
+  F.ry = TR.ry(t)
+  F.rz = TR.rz(t)
+  TR.pos(t, F.pos)
+  F.scale = TR.scale(t)
+  // a slow idle turn while it hangs in the studio (never under reduced motion: time is 0 there)
+  F.ry += 0.035 * Math.sin(time * 0.21) * (1 - w(t, 3.2, 3.6)) + 0.03 * Math.sin(time * 0.17) * w(t, 33, 34)
 
-  /* ---------- heartbeat (62 bpm) ---------- */
+  /* ---------- band (worn) and the arm ---------- */
+  const Wn = S.worn
+  Wn.k = TR.wornK(t)
+  Wn.slide = TR.slide(t)
+  Wn.cinch = TR.cinch(t)
+  TR.armP(t, S.armT.pos)
+  TR.armF(t, S.armT.f)
+  TR.armD(t, S.armT.d)
+
+  const A = S.arm
+  A.alpha = env(t, 8.2, 8.55, 32.3, 32.9)
+  A.scan = range(t, 8.25, 9.1)
+  A.solid = 1 - 0.88 * env(t, 23.9, 24.5, 26.9, 27.5)
+  A.rim = 0.4 + 0.6 * env(t, 8.2, 8.8, 10.3, 11.0)
+  A.contact = env(t, 9.9, 10.15, 11.2, 12.0) * 0.9 + env(t, 24.3, 24.8, 26.9, 27.4)
+  A.pulse = env(t, 24.5, 24.8, 26.9, 27.3)
+  A.tint = env(t, 24.3, 24.8, 26.9, 27.4)
+  A.warm = env(t, 25.25, 25.6, 26.0, 26.4)
+
+  /* ---------- band details ---------- */
+  const B = S.band
+  B.alpha = 1
+  B.explode = w(t, 5.9, 6.6) * (1 - w(t, 7.2, 7.8))
+  B.wrapAlpha = 1 - 0.8 * env(t, 5.85, 6.3, 7.25, 7.7) - 0.7 * env(t, 24.0, 24.5, 26.9, 27.4)
   const period = 60 / 62
   const ph = (time % period) / period
-  const beatRaw = Math.exp(-ph * 6.5) * (1 - Math.exp(-ph * 60))
-  const beatOn = env(t, 4.3, 4.6, 10.8, 11.2)
-  S.beat = beatRaw * beatOn
-  ENV.uBeat.value = S.beat * 0.8
-  S.hrLive = 62 + Math.round(Math.sin(time * 0.37) * 1.2)
+  const beat = Math.exp(-ph * 6.5) * (1 - Math.exp(-ph * 60))
+  S.beat = beat
+  const ledOn = env(t, 5.2, 5.4, 5.7, 5.95) + env(t, 24.5, 24.8, 26.9, 27.3)
+  B.ledG = clamp(ledOn) * (0.35 + 0.65 * beat)
+  B.ledR = clamp(env(t, 24.9, 25.2, 26.9, 27.3)) * (0.6 + 0.2 * Math.sin(time * 4.3))
 
   /* ---------- 01 ---------- */
-  S.dust = env(t, 0.05, 0.9, 2.9, 3.7) + 0.55 * env(t, 34.8, 35.6, 40, 41)
+  S.dust = 0.9 * env(t, 0.3, 1.0, 2.6, 3.4) + 0.5 * env(t, 32.8, 33.6, 40, 41)
+  S.dustKick = env(t, 25.6, 25.9, 26.5, 26.9) // 07 · motion: your scroll shoves the dust
 
-  /* ---------- 02 · sensors & signals ---------- */
-  const ledGon = env(t, 4.35, 4.6, 5.55, 6.0)
-  const ledRon = env(t, 4.85, 5.1, 5.55, 6.0)
-  S.led.g = ledGon * (0.35 + 0.65 * beatRaw)
-  S.led.r = ledRon * (0.55 + 0.25 * Math.sin(time * 5.1))
-  ENV.uSpill.value.setRGB(0, 0, 0).add(tmpC.copy(C.green).multiplyScalar(S.led.g * 0.5)).add(tmpC.copy(C.red).multiplyScalar(S.led.r * 0.4))
-  const sg = S.sig
-  sg.hr = range(t, 5.25, 5.95)
-  sg.hrv = range(t, 5.85, 6.35)
-  sg.spo2 = range(t, 6.15, 6.65)
-  sg.resp = range(t, 6.45, 6.95)
-  sg.temp = range(t, 6.75, 7.25)
-  sg.sleep = range(t, 7.05, 7.55)
-  sg.motion = range(t, 7.35, 7.85)
-  sg.fold = w(t, 8.0, 8.7)
-  sg.a = env(t, 5.2, 5.4, 8.3, 8.75)
-  ENV.uThermal.value = env(t, 6.8, 7.15, 7.55, 7.95)
-  S.dustKick = env(t, 7.3, 7.6, 8.0, 8.4)
+  /* ---------- haptics (03 settle, 05 done) ---------- */
+  const H = S.haptic
+  const h1 = 10.1
+  const h2 = 18.0
+  const hs = t < h2 - 0.3 ? h1 : h2
+  H.age = Math.max(0, t - hs)
+  H.a = t > hs && H.age < 0.9 ? 1 - smooth(range(H.age, 0.4, 0.9)) : 0
 
-  /* ---------- 03 · body ---------- */
-  const B = S.body
-  B.reveal = range(t, 8.25, 9.35)
-  B.flow = env(t, 8.95, 9.3, 10.7, 11.05)
-  B.data = range(t, 9.75, 10.55)
-  B.out = w(t, 10.9, 11.55)
-  B.a = env(t, 8.2, 8.5, 11.1, 11.55)
+  /* ---------- 04 / 05 · context → memory → action ---------- */
+  const C = S.ctx
+  C.a = env(t, 11.4, 11.8, 19.6, 20.0)
+  const starts = [12.0, 13.1, 14.2]
+  for (let i = 0; i < 3; i++) {
+    const s = starts[i]
+    C.draw[i] = range(t, s, s + 0.45)
+    C.fold[i] = range(t, s + 0.72, s + 1.05)
+    C.mem[i] = smooth(range(t, s + 0.95, s + 1.2)) * (1 - smooth(range(t, 19.5, 19.9)))
+    C.path[i] = range(t, 15.9 + 0.55 * i, 16.4 + 0.55 * i) * (1 - smooth(range(t, 19.3, 19.8)))
+    C.act[i] = smooth(range(t, 16.3 + 0.55 * i, 16.55 + 0.55 * i)) * (1 - smooth(range(t, 19.4, 19.9)))
+  }
+  // REAL WORLD → VEXO → MEMORY → ACTION
+  C.crumb = t < 12.2 ? 0 : t < 12.75 ? 1 : t < 13.05 ? 2 : t < 16.25 ? 3 : 4
 
-  /* ---------- 04 · voice ---------- */
+  /* ---------- 06 · voice ---------- */
   const Vc = S.voice
-  const tapA = 12.45
-  const tapB = 12.7
-  const ageA = (t - tapA) * 3.4
-  const ageB = (t - tapB) * 3.4
-  ENV.uRipA.value.set(Math.PI, 0.05, Math.max(0, ageA), t > tapA && ageA < 2.2 ? 1 : 0)
-  ENV.uRipB.value.set(Math.PI + 0.06, -0.04, Math.max(0, ageB), t > tapB && ageB < 2.2 ? 1 : 0)
-  Vc.tap = pulse(t, tapA + 0.02, 0.025) + pulse(t, tapB + 0.02, 0.025)
-  Vc.wave = env(t, 12.95, 13.2, 13.95, 14.2)
-  Vc.front = range(t, 12.95, 13.95)
-  Vc.rings = env(t, 13.15, 13.35, 13.95, 14.15)
-  Vc.haptic = env(t, 14.3, 14.36, 14.5, 14.75)
-  ENV.uHaptic.value = Vc.haptic
-  ENV.uHapticP.value = range(t, 14.3, 14.62)
-  Vc.ripple = range(t, 14.4, 15.5) // the haptic ripple grows into the apps orbit
-  Vc.orbit = env(t, 14.45, 14.7, 16.0, 16.6)
+  Vc.a = env(t, 20.2, 20.5, 23.3, 23.8)
+  Vc.draw = range(t, 20.55, 21.55)
+  Vc.fold = range(t, 21.45, 21.8)
+  Vc.listen = env(t, 20.5, 20.65, 21.6, 21.8)
+  Vc.create = range(t, 21.85, 23.2)
 
-  /* ---------- 05 · apps ---------- */
-  const A = S.apps
-  A.emerge = range(t, 15.2, 16.3)
-  A.threads = env(t, 15.8, 16.4, 18.9, 19.4)
-  A.market = range(t, 17.9, 18.7)
-  A.retract = w(t, 19.1, 19.9)
-  A.a = env(t, 15.1, 15.4, 19.5, 19.95)
-  A.spin = t * 0.08
-
-  /* ---------- 06 · studio ---------- */
-  const St = S.studio
-  St.a = env(t, 19.7, 19.9, 24.3, 24.8)
-  St.stream = range(t, 20.85, 21.45)
-  St.breath = pulse(t, 21.55, 0.12)
-  St.code = range(t, 21.45, 22.35)
-  St.build = range(t, 21.95, 23.35)
-  St.wire = range(t, 22.85, 23.55)
-  St.credit = range(t, 23.45, 23.85)
-  St.shrink = w(t, 24.2, 24.9)
-
-  /* ---------- 07 · api ---------- */
-  const Ap = S.api
-  Ap.grow = range(t, 24.45, 25.35)
-  Ap.packets = env(t, 25.0, 25.4, 26.9, 27.25)
-  Ap.collapse = w(t, 27.3, 28.0)
-  Ap.a = env(t, 24.3, 24.6, 27.7, 28.05)
+  /* ---------- 07 · health ---------- */
+  const Hl = S.health
+  Hl.a = env(t, 24.2, 24.5, 26.95, 27.35)
+  Hl.hr = range(t, 24.6, 25.0)
+  Hl.temp = range(t, 25.2, 25.6)
+  Hl.motion = range(t, 25.8, 26.2)
 
   /* ---------- 08 · privacy ---------- */
   const P = S.priv
-  P.boundary = range(t, 28.15, 28.8)
-  P.voice = range(t, 28.55, 29.45)
-  P.perms = range(t, 29.15, 30.25)
-  P.out = w(t, 30.35, 30.95)
-  P.a = env(t, 28.05, 28.3, 30.5, 30.95)
+  P.a = env(t, 27.6, 28.0, 30.7, 31.1)
+  P.waves = range(t, 27.8, 28.6)
+  P.dissolve = range(t, 28.9, 29.7)
+  P.remain = smooth(range(t, 29.3, 29.7)) * (1 - smooth(range(t, 30.7, 31.05)))
+  P.del = range(t, 30.05, 30.45)
 
-  /* ---------- 09 · days ---------- */
-  const Dy = S.days
-  Dy.small = env(t, 30.75, 31.0, 31.3, 31.55)
-  Dy.arc = env(t, 31.4, 31.7, 34.1, 34.5)
-  Dy.day = clamp((t - 31.65) / 0.31, 0, 5) // 0 → 5 days across the scene
-  Dy.dock = w(t, 33.05, 33.55) * (1 - w(t, 34.15, 34.75))
-  Dy.charge = range(t, 33.6, 34.05)
-  Dy.level = lerp(1 - 0.19 * Dy.day, 1, smooth(Dy.charge))
-  Dy.a = env(t, 30.65, 30.9, 34.2, 34.6)
+  /* ---------- 09 ---------- */
+  S.fin.a = w(t, 33.0, 33.6)
+  S.fin.cta = w(t, 33.6, 34.2)
 
-  /* ---------- 10 ---------- */
-  S.fin.a = w(t, 34.9, 35.5)
-
-  /* ---------- lighting ---------- */
+  /* ---------- light ---------- */
   lights(t, time, m)
 
   /* ---------- background ---------- */
   const bg = S.bg
   bg.top.setRGB(0, 0, 0)
   bg.bot.setRGB(0.008, 0.008, 0.009)
-  bg.glow.set('#15171b')
-  bg.glowA = 0.3 * env(t, 1.0, 2.6, 3.3, 3.9) + 0.5 * env(t, 5.6, 6.6, 8.2, 8.8) + 0.35 * env(t, 8.3, 9.0, 11.0, 11.6) + 0.4 * env(t, 15.2, 16, 19, 19.8) + 0.45 * env(t, 20.2, 21.2, 24, 24.6) + 0.35 * env(t, 24.4, 25.2, 27.4, 28) + 0.5 * env(t, 30.8, 31.6, 34.2, 34.8) + 0.6 * w(t, 35.0, 36.0)
+  bg.glow.set('#16181c')
+  bg.glowA =
+    0.35 * env(t, 2.2, 3.0, 3.5, 4.0) +
+    0.45 * env(t, 5.9, 6.5, 7.4, 8.0) +
+    0.35 * env(t, 9.6, 10.3, 11.0, 11.6) +
+    0.35 * env(t, 15.8, 16.6, 19.2, 19.8) +
+    0.4 * env(t, 21.9, 22.6, 23.4, 24.0) +
+    0.6 * w(t, 32.8, 34.0)
   bg.glowX = 0.5
-  bg.glowY = m ? 0.42 : 0.5
+  bg.glowY = m ? 0.4 : 0.48
   bg.glowR = 0.55
-  // green breath of the PPG during the macro shot
-  if (S.led.g > 0.001) {
-    bg.glow.lerp(tmpC.set('#0d3a1e'), clamp(ledGon))
-    bg.glowA = Math.max(bg.glowA, 0.5 * ledGon + 0.25 * S.led.g)
-  }
-  // five days: each day brings a dawn and a night to the room
-  if (Dy.arc > 0.001) {
-    const dp = Dy.day % 1
-    const day = Math.sin(Math.PI * clamp(dp * 1.15))
-    tmpC.copy(C.moon).lerp(C.dawn, day)
-    bg.glow.lerp(tmpC.multiplyScalar(0.2), Dy.arc * (1 - Dy.charge))
-    bg.glowY = lerp(bg.glowY, 0.42, Dy.arc)
+  // the sensor's own light in the room
+  if (B.ledG > 0.001) {
+    const g = clamp(ledOn)
+    bg.glow.lerp(tmpC.set('#0b2e1a'), g)
+    bg.glowA = Math.max(bg.glowA, 0.45 * g)
   }
 }
 
+/*
+  Light. The studio environment (strip softboxes, baked once) gives the titanium its edges and the
+  weave its sheen; `env` fades it. The key / rim / fill / top lights ride with the camera, like a
+  product photographer's rig, so the band keeps its look as we move around it. The spot is the
+  single raking light of the opening: a thin blade grazing the weave.
+*/
 function lights(t, time, m) {
-  // 01/10 — a single strip of light travels around the ring's circumference
-  const sweepA = env(t, 0.02, 0.35, 2.7, 3.6) + env(t, 34.5, 35.3, 40, 41)
-  let a = lerp(-2.6, 1.15, smooth(range(t, 0.0, 2.8)))
-  if (t > 34) a = lerp(-2.4, 1.0, smooth(range(t, 34.3, 36.6))) + 0.08 * Math.sin(time * 0.25)
-  const e = 0.22
-  dSweep.set(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e))
-  box(0, dSweep, UP, 0.03, 2.4, 0.012, C.white, 7.5 * sweepA)
+  const L = S.light
+  // 01 · raking light across the fabric, then across the engraving
+  const open = env(t, 0.3, 0.75, 2.3, 3.0)
+  const sweep = smooth(range(t, 0.35, 1.7))
+  const tg = TR.tgt
+  tg(t, L.spotTgt)
+  // aim sweeps across the frame; the source stays low and to the side, so the light grazes the surface
+  const across = lerp(-0.7, 0.55, sweep) + lerp(0, -0.5, smooth(range(t, 1.6, 2.2))) + lerp(0, 0.6, smooth(range(t, 2.0, 2.5)))
+  L.spotTgt.x += across
+  L.spotPos.set(L.spotTgt.x - 2.4, L.spotTgt.y + 0.55, L.spotTgt.z + 0.55)
+  L.spot = 26 * open
+  L.spotAngle = 0.22
 
-  // key / rim / top / fill
-  const studio = w(t, 2.1, 3.2) * (1 - 0.75 * env(t, 27.5, 28.1, 30.3, 30.8)) * (1 - w(t, 34.2, 34.8) * 0.8)
-  let key = 2.2 * studio
-  let rim = 0.4 + 1.9 * studio
-  let top = 1.3 * studio
-  let fill = 0.55 * studio
-  // inside the ring: dark, so the sensor's own light carries the shot
-  const macro = env(t, 3.8, 4.3, 5.4, 5.9)
-  key = lerp(key, 0.5, macro)
-  top = lerp(top, 0.28, macro)
-  rim = lerp(rim, 1.1, macro)
-  fill = lerp(fill, 0.25, macro)
-  // privacy: darkness, one rim light
-  const dark = env(t, 27.4, 28.1, 30.4, 30.9)
-  rim = lerp(rim, 2.4, dark)
-  // final studio: brighter, cleaner
-  // the dock needs an edge to read as an object
-  rim = lerp(rim, 3.0, S.days.dock)
-  const fin = w(t, 35.0, 36.0)
-  key = lerp(key, 2.6, fin)
-  top = lerp(top, 1.5, fin)
-  rim = lerp(rim, 2.2, fin)
-  fill = lerp(fill, 0.7, fin)
+  // studio
+  const studio = w(t, 2.0, 3.0) * (1 - 0.7 * env(t, 27.6, 28.2, 30.7, 31.2)) * (1 - 0.85 * env(t, 30.9, 31.3, 32.3, 33.0))
+  const health = env(t, 23.9, 24.5, 26.9, 27.4)
+  const fin = w(t, 32.5, 33.6)
+  L.env = 0.06 + 1.0 * studio * (1 - 0.65 * health) + 0.35 * fin
+  L.key = 2.4 * studio * (1 - 0.6 * health) + 1.2 * fin
+  L.rim = 0.3 + 2.4 * studio + 1.6 * env(t, 27.6, 28.2, 30.7, 31.2) + 1.2 * fin
+  L.fill = 0.5 * studio * (1 - 0.5 * health) + 0.3 * fin
+  L.top = 1.1 * studio + 0.4 * fin
 
-  // 04: the close-up gets product-shot strips instead of broad boxes (crisp lines on the band)
-  const vo = env(t, 11.6, 12.2, 14.9, 15.4)
-  key = lerp(key, 2.6, vo)
-  top = lerp(top, 0.55, vo)
-  rim = lerp(rim, 2.2, vo)
-
-  const keyC = tmpC.copy(C.warm)
-  // large, soft sources so the titanium reads as a gradient, not black glass with specks
-  box(1, dKey, UP, lerp(0.95, 0.07, vo), lerp(0.55, 1.4, vo), lerp(0.28, 0.03, vo), keyC, key)
-  box(2, dRim, UP, 0.07, 1.25, 0.035, C.white, rim)
-  box(3, dTop, upZ, 1.2, 0.9, 0.35, C.cool, top)
-  box(4, dFill, UP, 1.4, 0.07, 0.06, C.cool, fill)
-
-  // accent: day light for the five days, haptic flash, studio breath
-  const Dy = S.days
-  if (Dy.arc > 0.001) {
-    const da = Dy.day * TAU + 2.2
-    const dp = Dy.day % 1
-    const day = Math.sin(Math.PI * clamp(dp * 1.15))
-    dAcc.set(Math.sin(da), 0.25 + 0.5 * day, Math.cos(da))
-    tmpC.copy(C.moon).lerp(C.dawn, day)
-    box(5, dAcc, UP, 0.5, 0.3, 0.12, tmpC, (1.2 + 2.2 * day) * Dy.arc * (1 - Dy.charge))
-  } else {
-    const br = S.studio.breath + S.voice.haptic * 0.2
-    dAcc.set(0.2, 0.3, 1)
-    box(5, dAcc, UP, 1.4, 1.0, 0.3, C.white, br * 1.6)
+  // 09 · product light: a strip crosses the band once more before the CTA
+  const pl = env(t, 32.5, 33.0, 34.6, 35.2)
+  if (pl > 0.001) {
+    const k = smooth(range(t, 32.6, 34.8)) + 0.04 * Math.sin(time * 0.3)
+    L.spotTgt.set(lerp(-1.6, 1.4, k), 0.25, 0.4)
+    L.spotPos.set(L.spotTgt.x - 3.5, 1.8, 3.2)
+    L.spot = Math.max(L.spot, 14 * pl)
+    L.spotAngle = 0.3
   }
-
-  // env room
-  const room = 0.012 + 0.07 * studio * (1 - 0.6 * macro) + 0.03 * fin
-  ENV.uEnvTop.value.setRGB(room, room, room * 1.05)
-  ENV.uEnvBot.value.setRGB(room * 0.3, room * 0.3, room * 0.32)
-  ENV.uEnvFloor.value.setRGB(room * 0.15, room * 0.15, room * 0.15)
-  ENV.uTime.value = time
 }
