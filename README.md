@@ -1,71 +1,59 @@
-# Vexo Ring: an interactive unveiling
+# Vexo Band: an interactive unveiling
 
-A scroll-driven product film for the Vexo Ring, built in React.
+A scroll-driven product film for **Vexo Band**, built in React.
 
-Scroll is the playhead. Scrolling back rewinds it. The ring is one real-time 3D object that carries the camera through
-ten scenes:
+Scroll is the playhead, and scrolling back rewinds it. The band is rendered from Vexo's own 3D model, and it carries
+every transition:
 
-> ring → sensors → body → data → voice → apps → Vexo Studio → the body as an API → privacy → five days → the ring
+> woven fabric in the dark → the whole band → inside the module → onto a wrist → the day it hears → what it does →
+> the microphone → the sensors → the audio disappears → off the wrist, back into the light
 
-`STORYBOARD.md` has the full scene breakdown, the research, and the source for every product claim.
+See [`STORYBOARD.md`](./STORYBOARD.md) for the scene plan and the source of every claim.
 
-## Run it
+## Run
 
 ```bash
 npm install
 npm run dev            # http://localhost:5173
-npm run build          # production build → dist/  (Vercel config included)
-npm run build:single   # one self-contained HTML file → preview/index.html
+npm run build          # production build → dist/
+npm run build:single   # one self-contained HTML file → preview/ (with models/, draco/, images/ beside it)
 ```
-
-`preview/index.html` is already built. Open it directly in a browser to watch the film without installing anything.
 
 ## How it's built
 
-| Layer | What it does |
+| | |
 |---|---|
-| `src/film/timeline.js` | Scenes and story time. **PACE** zones slow the key moments. Monotone cubic tracks give continuous velocity with no overshoot, so moves don't stop and start at every keyframe. |
-| `src/film/director.js` | The script. Every value (camera, ring pose, lights, per-scene cues) is a pure function of story time `t`. |
-| `src/gl/Stage.jsx` | One R3F canvas. Camera and ring follow the director through critically damped springs, which gives the ring weight. Also runs adaptive DPR and parallel shader compilation. |
-| `src/gl/ringGeometry.js`, `Ring.jsx` | The ring, modelled from Vexo's render: a crowned titanium band, stepped inner lip, mic port with bezel and grille, sensor pill with green and red LEDs, and VΞXO engraved inside. |
-| `src/gl/studio.js` | The metal shader. The environment is analytic: six rounded softboxes evaluated along the reflection vector, so lights can move every frame at no cost. Also handles thermal, tap-ripple, haptic and LED-spill effects. |
-| `src/gl/LineField.js` | The film's line engine. Screen-space anti-aliased ribbons, one draw call per field. Static shapes come from a float texture. Orbits, waves and Béziers are evaluated in the vertex shader. |
-| `src/gl/bodyContours.js` | A signed-distance body sliced into contour loops with marching squares at start-up (about 100 ms). |
-| `src/overlay/*` | All typography is DOM. Labels are projected from 3D anchors every frame, so text stays crisp and readable by screen readers. The Studio app is DOM + CSS 3D. |
-| `src/Coda.jsx` | After the film: official photography, specs, the demo film (loads on click), women's health, footer. |
-| `src/Fallback.jsx` | A static typographic version for devices without WebGL2. |
+| `src/film/timeline.js` | Story time, the nine scenes, and PACE (slow-motion zones that give key moments more scroll). |
+| `src/film/director.js` | The script. Every value (camera, band pose, arm pose, lights, per-scene cues) is a pure function of story time `t`. The band lives two lives, floating or worn, and `worn.k` blends them. While worn, the band stays put and the arm moves through it. |
+| `src/gl/Stage.jsx` | The canvas. Critically damped springs give the camera, band and arm their weight, and an under-damped spring makes the cinch. It composes the band and arm matrices, runs the camera-relative light rig and the studio environment, and waits for the model before the film starts. |
+| `src/gl/Band.jsx`, `bandAsset.js`, `bandSpec.js` | Vexo's GLB (Draco, woven normal/roughness maps, sheen) is loaded once. Its parts are grouped for the exploded view, and it handles the finishes (Graphite, Pearl, Moss) and the sensor LEDs. |
+| `src/gl/handMesh.js`, `Wrist.jsx` | The wearer's forearm and hand is one smooth signed-distance surface (forearm, palm, fingers, thumb, nails), polygonised at load with surface nets. It uses a skin shader, arrives behind a line of light, and turns glassy for the sensor scene. |
+| `src/gl/LineField.js`, `Story.jsx` | One draw call of screen-space hairlines: conversations as waveforms, memory → action paths, haptic ripples, the voice, and the privacy scene. |
+| `src/overlay/*` | All typography is DOM, pinned to 3D points each frame, so it stays crisp and readable by screen readers. |
+| `src/Coda.jsx`, `src/Fallback.jsx` | After the film comes official photography, "Band, in detail" and the footer. Without WebGL2, the same story is told as a photographic page. |
 
-React never re-renders from scroll. Everything reads a mutable store once per frame.
+## Performance, accessibility, fallbacks
 
-## Performance and accessibility
+- The model is about 7 MB. A loader shows real progress, and every shader (including ones hidden until later) is compiled before the film starts.
+- DPR is adaptive and steps down on slow devices. Internal parts render only in the exploded view.
+- Mobile has its own camera and arm tracks (a portrait composition), and lighter geometry.
+- `prefers-reduced-motion`: no smoothing and no idle motion; the film simply follows the scroll.
+- No WebGL2, or the model fails to load: `Fallback.jsx`.
 
-- **No downloads for the film itself.** Engraving, grille and dock print are drawn on canvas. Photography lazy-loads in the coda.
-- **Adaptive pixel ratio.** It starts at 1.75 on desktop and 1.5 on mobile, and a frame-time monitor steps it down on slow devices.
-- **Mobile has its own layout.** Every camera and ring keyframe has a portrait variant, with lighter geometry and particle counts.
-- **`prefers-reduced-motion`.** Wheel inertia is off, idle motion and the haptic tremor are frozen, and the springs snap.
-- **Keyboard and screen-reader access.** There's a skip link, a keyboard scene index, a live region for the current scene, and every headline is real text.
+## Assets
 
-## Content and links
-
-`src/config.js` holds all links, readings and apps.
-
-- **Links:** `SITE` is set to `https://www.vexoai.com`. Set it to `''` if this ships on vexoai.com itself.
-- **Calls to action:**
-  - Primary: the Vexo Ring app on the App Store.
-  - Secondary: the live `/waitlist`. Set `SHOW_WAITLIST = false` to remove it.
-  - There is no Ring checkout; the current `/checkout` sells Vexo Band.
-- **Finishes** (Silver, Gold, Graphite) match Vexo's own photography.
+- `public/models/vexo-band.glb`: Vexo's own product model (`vexoai.com/models/vexo-wrap-product-v15-web.glb`). If it's missing, the site's copy is used.
+- `public/images/band/*`: official renders and photography from vexoai.com.
+- `public/draco/`: the Draco decoder (from three.js).
 
 ## QA
 
-Add `~d` to the hash to get a debug overlay, e.g. `#t12.4~d`. `#t12.4` on its own deep-links to a moment.
+Add `#t12.4` to jump to a moment, and `~d` for the debug overlay (for example `#t12.4~d`). With the overlay on:
 
-| Key | Action |
-|---|---|
-| `1`–`0` | Jump to a scene |
-| `,` `.` | Previous / next checkpoint |
-| `[` `]` | Step ±0.25 |
-| `f` | Cycle finish |
-| `c` | Go to the coda |
+- `,` and `.` step between checkpoints.
+- `~tour3` steps through every checkpoint, 3 s apart.
+- `~xw`, `~xs` and `~xd` hide the wrist, the story lines or the dust.
 
-`~xb`, `~xs`, `~xv`, `~xr`, `~xd`, `~xk` turn off the body, signals, voice, ring, dust or dock, for bisecting.
+## Deploy
+
+Static. `vercel.json` is included. Push to GitHub and import the repo on Vercel, or run `npx vercel`.

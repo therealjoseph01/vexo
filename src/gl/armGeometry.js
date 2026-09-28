@@ -12,10 +12,10 @@ const K = [
   // x, halfWidth (Z), halfThickness (Y), centreY, exponent
   [-21, 3.8, 3.3, 0.0, 2.0],
   [-13, 3.7, 3.1, 0.05, 2.0],
-  [-7, 3.35, 2.6, 0.05, 2.1],
-  [-2.5, 2.95, 2.05, 0.0, 2.3],
-  [0, 2.8, 1.92, 0.0, 2.4],
-  [1.8, 3.0, 1.8, -0.05, 2.5],
+  [-7, 3.4, 2.65, 0.05, 2.1],
+  [-2.5, 3.0, 2.2, 0.0, 2.3],
+  [0, 2.86, 2.08, 0.0, 2.4],
+  [1.8, 3.0, 1.85, -0.05, 2.5],
   [4.5, 3.42, 1.55, -0.1, 2.7],
   [8.5, 3.48, 1.3, -0.2, 2.8],
   [11, 3.38, 1.1, -0.35, 2.6],
@@ -56,13 +56,13 @@ export function armLoops({ step = 0.5, pts = 96, thumbPts = 48 } = {}) {
   for (let x = ARM_X0 + 0.5; x <= ARM_X1 - 0.3; x += step) {
     const { w, h, cy, n } = armSection(x)
     const s = 1.012 // just proud of the occluder
-    const ring = []
+    const loop = []
     for (let i = 0; i < pts; i++) {
       const a = (i / pts) * Math.PI * 2
       const [zz, yy] = se(a, w * s, h * s, n)
-      ring.push([x, cy + yy, zz, Math.abs(x - WRIST_X) / 20])
+      loop.push([x, cy + yy, zz, Math.abs(x - WRIST_X) / 20])
     }
-    loops.push({ pts: ring, x, part: 'arm' })
+    loops.push({ pts: loop, x, part: 'arm' })
   }
   const axis = new THREE.Vector3().subVectors(T1, T0)
   const len = axis.length()
@@ -73,19 +73,19 @@ export function armLoops({ step = 0.5, pts = 96, thumbPts = 48 } = {}) {
     const t = k / 16
     const c = new THREE.Vector3().copy(T0).addScaledVector(axis, len * t)
     const r = (TR0 + (TR1 - TR0) * t) * (t > 0.85 ? Math.sqrt(1 - ((t - 0.85) / 0.15) ** 2) * 0.99 + 0.01 : 1) * 1.012
-    const ring = []
+    const loop = []
     for (let i = 0; i < thumbPts; i++) {
       const a = (i / thumbPts) * Math.PI * 2
       const p = new THREE.Vector3().copy(c).addScaledVector(u, Math.cos(a) * r).addScaledVector(v, Math.sin(a) * r * 0.8)
-      ring.push([p.x, p.y, p.z, Math.abs(p.x - WRIST_X) / 20])
+      loop.push([p.x, p.y, p.z, Math.abs(p.x - WRIST_X) / 20])
     }
-    loops.push({ pts: ring, x: c.x, part: 'thumb' })
+    loops.push({ pts: loop, x: c.x, part: 'thumb' })
   }
   return loops
 }
 
 // The solid the lines are drawn on: occludes the band's far side and everything behind the arm.
-export function armSolid({ rings = 140, seg = 64 } = {}) {
+export function armSolid({ sections = 140, seg = 64 } = {}) {
   const pos = []
   const nor = []
   const idx = []
@@ -121,7 +121,7 @@ export function armSolid({ rings = 140, seg = 64 } = {}) {
         return new THREE.Vector3(0, yy, zz).normalize()
       },
     }
-  }, rings)
+  }, sections)
   const axis = new THREE.Vector3().subVectors(T1, T0)
   const len = axis.length()
   axis.normalize()

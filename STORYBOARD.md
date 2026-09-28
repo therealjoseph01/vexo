@@ -72,7 +72,7 @@ re-researched on Sept 28 2026 from the live site, the site's own assets, and the
 | `gl/ringGeometry.js`, `gl/Ring.jsx` | Procedural lathe ring, sensor pill, engraving strip, mic bezel | **Deleted.** `gl/Band.jsx` loads Vexo's GLB |
 | `gl/studio.js`, `gl/textures.js` | Ring shader (θ-based ripples, lathe parts), ring engravings | **Deleted.** GLB PBR materials + studio PMREM environment (`gl/studioEnv.js`) |
 | `gl/Signals.jsx` | Seven orbits around a ring's circumference (HRV, SpO₂, sleep…) | **Rewritten** as `gl/Health.jsx`: three signals travelling along the wrist |
-| `gl/Body.jsx`, `bodyContours.js` | Whole body, hand over the heart behind a ring | **Rewritten** as `gl/Wrist.jsx`: a contour-line forearm and hand the band is worn on |
+| `gl/Body.jsx`, `bodyContours.js` | Whole body, hand over the heart behind a ring | **Rewritten** as `gl/Wrist.jsx` + `gl/handMesh.js`: a realistic forearm and hand (light skin tone) the band is worn on |
 | `gl/Voice.jsx` | Double tap on a ring, rings contracting into a ring's mic | **Rewritten**: voice into the band's edge microphone, no gesture |
 | `gl/Ecosystem.jsx`, `glyphs.js` | Ring app marketplace orbit | **Replaced** by `gl/Context.jsx`: memories and actions around the wrist |
 | `gl/Network.jsx` | MCP / OAuth developer network | **Replaced**: memory → action paths to the apps you already use |
@@ -103,7 +103,7 @@ re-researched on Sept 28 2026 from the live site, the site's own assets, and the
 - It closes again. *Woven comfort. Thoughtfully connected.*
 
 **03 · On your wrist** (8.2 – 11.2), the signature transition
-- A forearm and hand are drawn in light. The band loosens, turns to line up with the arm, slides over the hand, and
+- A human forearm and hand reach in, fingertips first, drawn out of the dark by a line of light. The band loosens, turns to line up with the arm, slides over the hand, and
   **cinches** onto the wrist with the module on top. It settles with a spring and one gentle haptic pulse.
 - *No screen, and nothing to open.*
 
@@ -131,7 +131,7 @@ re-researched on Sept 28 2026 from the live site, the site's own assets, and the
 - *Just say it. · Built-in microphone.*
 
 **07 · In tune with you** (23.8 – 27.4)
-- The camera moves beneath the wrist and the arm becomes translucent. The sensor window faces us and its green and
+- The camera moves beneath the wrist and the skin turns glassy, with contour lines carrying the signal. The sensor window faces us and its green and
   red LEDs wake.
 - Three signals, and only these three:
   - **heart rate**: a PPG pulse travelling up the wrist
@@ -159,8 +159,8 @@ re-researched on Sept 28 2026 from the live site, the site's own assets, and the
 |---|---|
 | Band | Vexo's GLB via `GLTFLoader` + `DRACOLoader`. Official PBR materials: woven normal and roughness maps, sheen on the textile, titanium. Parts are grouped by node name for the exploded view, LEDs and finishes. |
 | Light | A studio PMREM (strip softboxes) for reflections, plus animated real lights: a raking spot for the weave, key, rim. `scene.environmentIntensity` handles the fades to black. |
-| Wrist | A parametric forearm and hand lofted from elliptical sections. It draws as luminous contour loops (`LineField`) over a near-black fresnel occluder, so it reads as a solid wrist the band sits around. |
+| Wrist | A human forearm and hand as one smooth signed-distance surface (lofted forearm and palm, four fingers, a thumb held in along the palm, nails), polygonised at load with surface nets. Skin shading: a light skin tone with sheen, fine procedural relief and paler, glossier nails. In the sensor scene it turns glassy and contour loops (`LineField`) carry the pulse. |
 | Lines | The same `LineField` engine: waveforms, memory paths, health pulses, haptic ripples |
 | Type & UI | DOM, projected from 3D anchors (microphone, sensor window, loop closure): memories, actions, slides, labels |
-| Mobile | Portrait tracks. The arm is angled up the frame, and the words and memories stack above and below. |
+| Mobile | Portrait tracks. The arm runs up the frame, and the words and memories stack above and below the band. |
 | Perf | The GLB loads with a progress loader (about 7 MB). Internals are hidden except during the exploded view. Transmission is disabled on the sensor glass. DPR is adaptive. |

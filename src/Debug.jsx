@@ -50,6 +50,28 @@ export function Debug() {
       }
     }
     window.addEventListener('keydown', onKey)
+    // QA in embedded frames (where keys may not arrive): click the right edge for the next checkpoint, the left edge for the previous
+    const onDown = (e) => {
+      const x = e.clientX / window.innerWidth
+      if (x > 0.2 && x < 0.8) return
+      onKey({ key: x >= 0.8 ? '.' : ',' })
+    }
+    window.addEventListener('pointerdown', onDown)
+    // QA tour: #t0~d~tour3 steps through every checkpoint, one every 3 s (starting from the #t moment)
+    const tm = window.location.hash.match(/~tour(\d+(?:\.\d+)?)/)
+    let tour
+    if (tm) {
+      const every = parseFloat(tm[1]) * 1000
+      let last = 0
+      tour = setInterval(() => {
+        if (!film.ready) return
+        const now = performance.now()
+        if (!last) last = now
+        if (now - last < every) return
+        last = now
+        onKey({ key: '.' })
+      }, 200)
+    }
     let raf
     let last = performance.now()
     let fps = 60
@@ -69,8 +91,10 @@ export function Debug() {
     return () => {
       cancelAnimationFrame(raf)
       window.removeEventListener('keydown', onKey)
+      window.removeEventListener('pointerdown', onDown)
+      clearInterval(tour)
     }
   }, [])
   if (!DEBUG) return null
-  return <pre ref={el} style={{ position: 'fixed', left: 8, top: 70, zIndex: 99, margin: 0, font: '11px/1.4 monospace', color: '#9f9', background: 'rgba(0,0,0,.6)', padding: 8, maxWidth: '70vw', whiteSpace: 'pre-wrap', pointerEvents: 'none' }} />
+  return <pre ref={el} style={{ position: 'fixed', left: 8, bottom: 70, zIndex: 99, margin: 0, font: '9px/1.3 monospace', color: '#9f9', background: 'rgba(0,0,0,.5)', padding: 4, maxWidth: '46vw', maxHeight: '18vh', overflow: 'hidden', whiteSpace: 'pre-wrap', pointerEvents: 'none' }} />
 }

@@ -87,7 +87,7 @@ const vert = /* glsl */ `
       vec4 A = par(7); // R, span, start, amp
       vec4 B = par(8); // waveType, freq, phase, zAmp
       float th = A.z + u * A.y * 6.28318;
-      // the waveform is fixed to the ring's angle (integer freq → seamless), and flows with phase
+      // the waveform is fixed to the circle's angle (integer freq → seamless), and flows with phase
       float f = waveform(B.x, th / 6.28318 * B.y + B.z, B.w);
       float r = A.x + A.w * f;
       w = f;

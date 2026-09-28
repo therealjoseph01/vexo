@@ -132,19 +132,19 @@ em {
   align-items: center;
   gap: 18px;
 }
-.loader-ring {
+.loader-dial {
   width: 56px;
   height: 56px;
   transform: rotate(-90deg);
 }
-.loader-ring circle {
+.loader-dial circle {
   fill: none;
   stroke-width: 0.9;
 }
-.loader-ring .track {
+.loader-dial .track {
   stroke: rgba(236, 235, 231, 0.12);
 }
-.loader-ring .bar {
+.loader-dial .bar {
   stroke: rgba(236, 235, 231, 0.75);
   stroke-dasharray: 276.5;
   transition: stroke-dashoffset 0.3s ease;

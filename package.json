@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Vexo Ring — a scroll-driven product film. The ring, its sensors, the body, voice, apps, Vexo Studio, the platform, privacy and five days, in one continuous shot.",
+  "description": "Vexo Band: a scroll-driven product film. Vexo’s own band model, from woven fabric in the dark to the wrist, the day it hears, what it does, and back into the light.",
   "engines": {
     "node": ">=20.19"
   },

@@ -7,7 +7,7 @@ export function OnWrist() {
       <Beat at={[8.35, 8.6, 9.05, 9.3]} className="full a-top">
         <span className="eyebrow">On your wrist</span>
       </Beat>
-      <Beat at={[10.35, 10.65, 11.15, 11.45]} className="full a-bottom">
+      <Beat at={[10.35, 10.65, 10.95, 11.2]} className="full a-bottom">
         <div className="block center">
           <h2 className="headline">
             <Ln>No screen, and nothing to open.</Ln>

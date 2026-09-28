@@ -8,7 +8,7 @@ const toRGB = (c) => {
   return `${Math.round(rgb.r * 255)}, ${Math.round(rgb.g * 255)}, ${Math.round(rgb.b * 255)}`
 }
 
-// The room behind the ring: a gradient, a soft pool of light, and a whisper of film grain.
+// The room behind the band: a gradient, a soft pool of light, and a whisper of film grain.
 export function Backdrop() {
   const sky = useRef()
   const glow = useRef()

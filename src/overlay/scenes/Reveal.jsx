@@ -10,11 +10,11 @@ const D = Object.fromEntries(DETAILS)
 export function Reveal() {
   return (
     <>
-      <Tag at={[3.75, 4.0, 4.2, 4.4]} anchor={fromBand('weaveR')} dx={[70, 34]} dy={[-60, -70]} k="Woven wrap" title="One continuous loop" />
-      <Tag at={[3.9, 4.15, 4.2, 4.4]} anchor={fromBand('closure')} dx={[80, 30]} dy={[40, 56]} side={['left', 'left']} k="Loop closure" title="Titanium, engraved" />
+      <Tag at={[3.75, 4.0, 4.15, 4.35]} anchor={fromBand('weaveR')} dx={[60, 24]} dy={[-70, -80]} side="left" k="Woven wrap" title="One continuous loop" />
+      <Tag at={[3.9, 4.1, 4.15, 4.35]} anchor={fromBand('closure')} dx={[90, 30]} dy={[-90, 70]} k="Loop closure" title="Titanium, engraved" />
 
-      <Tag at={[4.55, 4.75, 4.95, 5.1]} anchor={fromBand('mic')} dx={[110, 30]} dy={[-64, -96]} k="Built-in microphone" title={D['Built-in microphone']} />
-      <Tag at={[5.2, 5.4, 5.6, 5.8]} anchor={fromBand('sensor')} dx={[120, 30]} dy={[-70, -110]} className="tag-green" k="Health sensors" title="Beneath, against your skin" />
+      <Tag at={[4.7, 4.85, 5.05, 5.2]} anchor={fromBand('mic')} dx={[110, 30]} dy={[-64, -96]} k="Built-in microphone" title={D['Built-in microphone']} />
+      <Tag at={[5.3, 5.45, 5.6, 5.8]} anchor={fromBand('sensor')} dx={[120, 30]} dy={[-70, -110]} className="tag-green" k="Health sensors" title="Beneath, against your skin" />
 
       {/* inside the module */}
       <Beat at={[5.95, 6.25, 7.1, 7.35]} className="full a-top-left">

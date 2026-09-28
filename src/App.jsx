@@ -98,7 +98,7 @@ function Loader({ done }) {
   return (
     <div className={`loader ${done ? 'done' : ''}`} aria-hidden="true">
       <div className="loader-in">
-        <svg viewBox="0 0 120 120" className="loader-ring">
+        <svg viewBox="0 0 120 120" className="loader-dial">
           <circle cx="60" cy="60" r="44" className="track" />
           <circle cx="60" cy="60" r="44" className="bar" style={{ strokeDashoffset: (1 - p) * 276.5 }} />
         </svg>
@@ -119,7 +119,13 @@ export default function App() {
   }, [ready])
 
   // no WebGL2, or the model couldn't load: the same story as a quiet, photographic page
-  if (!gl || failed) return <Fallback />
+  if (!gl || failed)
+    return (
+      <>
+        <Fallback />
+        <Debug />
+      </>
+    )
 
   return (
     <>

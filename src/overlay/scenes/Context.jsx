@@ -98,7 +98,7 @@ function Action({ i }) {
 export function Context() {
   return (
     <>
-      <Beat at={[11.25, 11.55, 11.95, 12.2]} className="full a-bottom">
+      <Beat at={[11.3, 11.55, 11.95, 12.2]} className="full a-bottom">
         <div className="block center">
           <h2 className="headline">
             <Ln>Every AI today waits for a prompt.</Ln>

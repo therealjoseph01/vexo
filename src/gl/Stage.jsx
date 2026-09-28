@@ -54,7 +54,7 @@ function bouncy(st, key, target, omega, zeta, dt) {
 }
 
 const KEYS = ['cx', 'cy', 'cz', 'tx', 'ty', 'tz', 'px', 'py', 'pz', 'rx', 'ry', 'rz', 's', 'k', 'slide', 'fx', 'fy', 'fz', 'dx', 'dy', 'dz', 'ax', 'ay', 'az']
-const sm = { init: false, cinch: 1.15, cinchV: 0, ptx: 0, pty: 0 }
+const sm = { init: false, cinch: 1.22, cinchV: 0, ptx: 0, pty: 0 }
 
 function Director() {
   if (!film.marks.tree) film.marks.tree = performance.now()
@@ -269,11 +269,23 @@ function Ready({ onReady, onError }) {
             requestAnimationFrame(() =>
               requestAnimationFrame(() => {
                 film.marks.model = performance.now()
+                // compile everything, including what is hidden until later in the film (the arm, the story lines)
+                const hidden = []
+                scene.traverse((o) => {
+                  if (!o.visible) {
+                    hidden.push(o)
+                    o.visible = true
+                  }
+                })
+                const restore = () => {
+                  for (const o of hidden) o.visible = false
+                  res()
+                }
                 try {
                   const p = gl.compileAsync ? gl.compileAsync(scene, camera) : (gl.compile(scene, camera), Promise.resolve())
-                  Promise.race([p, new Promise((r) => setTimeout(r, 6000))]).then(res, res)
+                  Promise.race([p, new Promise((r) => setTimeout(r, 8000))]).then(restore, restore)
                 } catch (e) {
-                  res()
+                  restore()
                 }
               }),
             )

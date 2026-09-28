@@ -1,2 +1,2 @@
-// Named Object3Ds (ring parts, nodes) that DOM labels pin themselves to.
+// Named Object3Ds that DOM labels can pin themselves to.
 export const anchors = {}

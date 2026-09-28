@@ -47,6 +47,57 @@ function loadFrom(url, draco) {
   )
 }
 
+/*
+  The same model as glTF JSON with its geometry buffer inlined and textures alongside, for hosts that
+  won't serve .glb or fetch data: URIs (the hosted preview). It is repacked into a GLB in memory.
+*/
+async function loadPacked(url, draco) {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`${url}: ${res.status}`)
+  const total = +res.headers.get('content-length') || 4.1e6
+  let text
+  if (res.body && res.body.getReader) {
+    const reader = res.body.getReader()
+    const parts = []
+    let got = 0
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      parts.push(value)
+      got += value.length
+      asset.progress = Math.min(0.97, got / total)
+      emit()
+    }
+    text = new TextDecoder().decode(await new Blob(parts).arrayBuffer())
+  } else text = await res.text()
+  const json = JSON.parse(text)
+  const uri = json.buffers[0].uri
+  const b64 = uri.slice(uri.indexOf(',') + 1)
+  const raw = atob(b64)
+  const bin = new Uint8Array(raw.length)
+  for (let i = 0; i < raw.length; i++) bin[i] = raw.charCodeAt(i)
+  delete json.buffers[0].uri
+  const enc = new TextEncoder().encode(JSON.stringify(json))
+  const jl = (enc.length + 3) & ~3
+  const bl = (bin.length + 3) & ~3
+  const glb = new Uint8Array(12 + 8 + jl + 8 + bl)
+  const dv = new DataView(glb.buffer)
+  dv.setUint32(0, 0x46546c67, true)
+  dv.setUint32(4, 2, true)
+  dv.setUint32(8, glb.length, true)
+  dv.setUint32(12, jl, true)
+  dv.setUint32(16, 0x4e4f534a, true)
+  glb.set(enc, 20)
+  for (let i = enc.length; i < jl; i++) glb[20 + i] = 0x20
+  dv.setUint32(20 + jl, bl, true)
+  dv.setUint32(24 + jl, 0x004e4942, true)
+  glb.set(bin, 28 + jl)
+  const loader = new GLTFLoader()
+  loader.setDRACOLoader(draco)
+  const base = url.slice(0, url.lastIndexOf('/') + 1)
+  return new Promise((resolve, reject) => loader.parse(glb.buffer, base, resolve, reject))
+}
+
 let started = null
 export function loadBand() {
   if (started) return started
@@ -63,9 +114,10 @@ export function loadBand() {
     let gltf = null
     for (const url of [localModel, localGltf, remoteModel]) {
       try {
-        gltf = await loadFrom(url, draco)
+        gltf = url === localGltf ? await loadPacked(url, draco) : await loadFrom(url, draco)
         break
       } catch (e) {
+        console.warn('Vexo Band: could not load', url, (e && e.message) || e)
         if (url === remoteModel) throw e
       }
     }
